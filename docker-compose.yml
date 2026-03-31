@@ -2,11 +2,11 @@ version: "3.8"
 
 services:
   stocknotifier:
-    build: .
+    image: ghcr.io/sharurukun/stocknotifier:latest
     container_name: stocknotifier
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "7077:8080"
     volumes:
       - ./data:/data
     environment:
