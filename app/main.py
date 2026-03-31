@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
+import requests
 import yfinance as yf
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -113,9 +114,16 @@ def set_setting(key: str, value: str):
 
 
 # --- Stock Data ---
+# --- Création d'une session pour éviter le ban de Yahoo Finance ---
+yf_session = requests.Session()
+yf_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+})
+
+# --- Stock Data ---
 def fetch_stock_data(symbol: str, period: str = "5d") -> dict | None:
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=yf_session)
         hist = ticker.history(period=period)
         if hist.empty:
             return None
@@ -144,13 +152,12 @@ def fetch_stock_data(symbol: str, period: str = "5d") -> dict | None:
         logger.error(f"Error fetching {symbol}: {e}")
         return None
 
-
 def search_stocks(query: str) -> list:
     """Search for stocks using yfinance."""
     try:
         results = []
         # Try direct lookup first
-        ticker = yf.Ticker(query.upper())
+        ticker = yf.Ticker(query.upper(), session=yf_session)
         info = ticker.info
         if info and info.get("shortName"):
             results.append({
@@ -186,8 +193,7 @@ def search_stocks(query: str) -> list:
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
-
-
+        
 # --- Pushover ---
 def send_pushover(message: str, title: str = "StockNotifier") -> bool:
     user_key = get_setting("pushover_user_key")
@@ -414,6 +420,9 @@ async def api_save_settings(request: Request):
 
 @app.post("/api/test-notification")
 async def api_test_notification():
+    if not get_setting("pushover_user_key") or not get_setting("pushover_api_token"):
+        raise HTTPException(400, "Clés Pushover manquantes. Veuillez les configurer dans les paramètres.")
+
     summary = build_daily_summary()
     if not summary:
         summary = "🔔 <b>Test Notification</b>\nStockNotifier is working! Add some stocks to get started."
