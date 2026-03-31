@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  stocknotifier:
+    build: .
+    container_name: stocknotifier
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Europe/Paris
+      - DATA_DIR=/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

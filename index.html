@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockNotifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+            <span class="brand-name">StockNotifier</span>
+        </div>
+
+        <div class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                <span data-i18n="nav_dashboard">Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+                <span data-i18n="nav_settings">Settings</span>
+            </a>
+            <a href="#" class="nav-item" data-page="history">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span data-i18n="nav_history">History</span>
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="lang-toggle" id="langToggle" title="Toggle language">
+                <span class="lang-flag">🇬🇧</span>
+                <span class="lang-label">EN</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Page -->
+        <section class="page active" id="page-dashboard">
+            <header class="page-header">
+                <div>
+                    <h1 data-i18n="dashboard_title">Dashboard</h1>
+                    <p class="page-subtitle" data-i18n="dashboard_subtitle">Your tracked stocks at a glance</p>
+                </div>
+                <button class="btn btn-primary" id="addStockBtn">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    <span data-i18n="btn_add_stock">Add Stock</span>
+                </button>
+            </header>
+
+            <div class="stocks-grid" id="stocksGrid">
+                <!-- Stock cards populated by JS -->
+            </div>
+
+            <div class="empty-state" id="emptyState" style="display:none">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                <h3 data-i18n="empty_title">No stocks tracked yet</h3>
+                <p data-i18n="empty_subtitle">Add your first stock to get started</p>
+            </div>
+        </section>
+
+        <!-- Settings Page -->
+        <section class="page" id="page-settings">
+            <header class="page-header">
+                <div>
+                    <h1 data-i18n="settings_title">Settings</h1>
+                    <p class="page-subtitle" data-i18n="settings_subtitle">Configure notifications & integrations</p>
+                </div>
+            </header>
+
+            <div class="settings-grid">
+                <!-- Pushover Config -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <h2>Pushover</h2>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="form-group">
+                            <label data-i18n="label_user_key">User Key</label>
+                            <input type="text" id="pushover_user_key" class="form-input" placeholder="Your Pushover User Key">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="label_api_token">API Token</label>
+                            <input type="password" id="pushover_api_token" class="form-input" placeholder="Your Application API Token">
+                        </div>
+                        <button class="btn btn-secondary" id="testNotifBtn">
+                            <span data-i18n="btn_test">Test Notification</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daily Notification -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <h2 data-i18n="daily_title">Daily Summary</h2>
+                        <label class="toggle">
+                            <input type="checkbox" id="daily_enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="form-group">
+                            <label data-i18n="label_send_at">Send at</label>
+                            <input type="time" id="daily_time" class="form-input" value="18:00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weekly Notification -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        <h2 data-i18n="weekly_title">Weekly Summary</h2>
+                        <label class="toggle">
+                            <input type="checkbox" id="weekly_enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="form-group">
+                            <label data-i18n="label_day">Day</label>
+                            <select id="weekly_day" class="form-input">
+                                <option value="0" data-i18n="day_mon">Monday</option>
+                                <option value="1" data-i18n="day_tue">Tuesday</option>
+                                <option value="2" data-i18n="day_wed">Wednesday</option>
+                                <option value="3" data-i18n="day_thu">Thursday</option>
+                                <option value="4" data-i18n="day_fri">Friday</option>
+                                <option value="5" data-i18n="day_sat">Saturday</option>
+                                <option value="6" data-i18n="day_sun">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="label_send_at">Send at</label>
+                            <input type="time" id="weekly_time" class="form-input" value="09:00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Threshold -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <h2 data-i18n="alert_title">Price Alerts</h2>
+                        <label class="toggle">
+                            <input type="checkbox" id="alert_enabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-card-body">
+                        <div class="form-group">
+                            <label data-i18n="label_threshold">Threshold (%)</label>
+                            <input type="number" id="alert_threshold" class="form-input" value="3" min="0.5" max="50" step="0.5">
+                        </div>
+                        <p class="form-hint" data-i18n="alert_hint">Get notified when a stock moves more than this percentage in a day.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button class="btn btn-primary" id="saveSettingsBtn">
+                    <span data-i18n="btn_save">Save Settings</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- History Page -->
+        <section class="page" id="page-history">
+            <header class="page-header">
+                <div>
+                    <h1 data-i18n="history_title">Notification History</h1>
+                    <p class="page-subtitle" data-i18n="history_subtitle">Recent notifications sent</p>
+                </div>
+            </header>
+            <div class="history-list" id="historyList">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Add Stock Modal -->
+    <div class="modal-overlay" id="addStockModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 data-i18n="modal_add_title">Add Stock</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-wrapper">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input type="text" id="stockSearch" class="form-input search-input" data-i18n-placeholder="search_placeholder" placeholder="Search stocks, indices, crypto...">
+                </div>
+                <div class="search-results" id="searchResults"></div>
+                <div class="popular-stocks">
+                    <h4 data-i18n="popular_title">Popular</h4>
+                    <div class="popular-chips">
+                        <button class="chip" data-symbol="^GSPC" data-name="S&P 500">S&P 500</button>
+                        <button class="chip" data-symbol="^FCHI" data-name="CAC 40">CAC 40</button>
+                        <button class="chip" data-symbol="^DJI" data-name="Dow Jones">Dow Jones</button>
+                        <button class="chip" data-symbol="^IXIC" data-name="NASDAQ">NASDAQ</button>
+                        <button class="chip" data-symbol="AAPL" data-name="Apple">Apple</button>
+                        <button class="chip" data-symbol="MSFT" data-name="Microsoft">Microsoft</button>
+                        <button class="chip" data-symbol="GOOGL" data-name="Alphabet">Google</button>
+                        <button class="chip" data-symbol="TSLA" data-name="Tesla">Tesla</button>
+                        <button class="chip" data-symbol="NVDA" data-name="NVIDIA">NVIDIA</button>
+                        <button class="chip" data-symbol="BTC-USD" data-name="Bitcoin">Bitcoin</button>
+                        <button class="chip" data-symbol="ETH-USD" data-name="Ethereum">Ethereum</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
