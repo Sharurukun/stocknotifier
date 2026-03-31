@@ -1,11 +1,12 @@
 /* ============================================
-   StockNotifier - Frontend App
+   StockNotifier - Frontend App v2
    ============================================ */
 
 // --- i18n ---
 const translations = {
     en: {
         nav_dashboard: "Dashboard",
+        nav_movers: "Top Movers",
         nav_settings: "Settings",
         nav_history: "History",
         dashboard_title: "Dashboard",
@@ -14,12 +15,18 @@ const translations = {
         settings_subtitle: "Configure notifications & integrations",
         history_title: "Notification History",
         history_subtitle: "Recent notifications sent",
+        movers_title: "Top Movers",
+        movers_subtitle: "Biggest moves among your tracked stocks",
+        movers_daily: "Daily Movers",
+        movers_weekly: "Weekly Movers",
+        movers_notif_title: "Top Movers Digest",
+        movers_hint: "Daily notification of your top movers (daily + weekly).",
         btn_add_stock: "Add Stock",
         btn_save: "Save Settings",
         btn_test: "Test Notification",
+        btn_test_movers: "Test Movers",
         empty_title: "No stocks tracked yet",
         empty_subtitle: "Add your first stock to get started",
-        modal_add_title: "Add Stock",
         search_placeholder: "Search stocks, indices, crypto...",
         popular_title: "Popular",
         label_user_key: "User Key",
@@ -27,6 +34,8 @@ const translations = {
         label_send_at: "Send at",
         label_day: "Day",
         label_threshold: "Threshold (%)",
+        label_include_monthly: "Include monthly variation",
+        label_movers_count: "Number of stocks",
         daily_title: "Daily Summary",
         weekly_title: "Weekly Summary",
         alert_title: "Price Alerts",
@@ -45,9 +54,19 @@ const translations = {
         high: "H",
         low: "L",
         vol: "Vol",
+        daily_change: "Day",
+        weekly_change: "Week",
+        monthly_change: "Month",
+        chart_close: "Close",
+        chart_high: "High",
+        chart_low: "Low",
+        chart_volume: "Volume",
+        movers_empty: "Add some stocks to see top movers",
+        rank: "#",
     },
     fr: {
         nav_dashboard: "Tableau de bord",
+        nav_movers: "Top Movers",
         nav_settings: "Paramètres",
         nav_history: "Historique",
         dashboard_title: "Tableau de bord",
@@ -56,12 +75,18 @@ const translations = {
         settings_subtitle: "Configurer les notifications et intégrations",
         history_title: "Historique des notifications",
         history_subtitle: "Notifications récentes envoyées",
+        movers_title: "Top Movers",
+        movers_subtitle: "Les plus gros mouvements parmi vos actions",
+        movers_daily: "Movers du jour",
+        movers_weekly: "Movers de la semaine",
+        movers_notif_title: "Digest Top Movers",
+        movers_hint: "Notification quotidienne de vos plus gros mouvements (jour + semaine).",
         btn_add_stock: "Ajouter",
         btn_save: "Enregistrer",
         btn_test: "Tester la notification",
+        btn_test_movers: "Tester Movers",
         empty_title: "Aucune action suivie",
         empty_subtitle: "Ajoutez votre première action pour commencer",
-        modal_add_title: "Ajouter une action",
         search_placeholder: "Chercher actions, indices, crypto...",
         popular_title: "Populaires",
         label_user_key: "Clé utilisateur",
@@ -69,6 +94,8 @@ const translations = {
         label_send_at: "Envoyer à",
         label_day: "Jour",
         label_threshold: "Seuil (%)",
+        label_include_monthly: "Inclure la variation mensuelle",
+        label_movers_count: "Nombre d'actions",
         daily_title: "Résumé quotidien",
         weekly_title: "Résumé hebdomadaire",
         alert_title: "Alertes de prix",
@@ -87,6 +114,15 @@ const translations = {
         high: "H",
         low: "B",
         vol: "Vol",
+        daily_change: "Jour",
+        weekly_change: "Semaine",
+        monthly_change: "Mois",
+        chart_close: "Clôture",
+        chart_high: "Haut",
+        chart_low: "Bas",
+        chart_volume: "Volume",
+        movers_empty: "Ajoutez des actions pour voir les top movers",
+        rank: "#",
     },
 };
 
@@ -136,7 +172,6 @@ function renderSparkline(data, positive) {
         return `${x},${y}`;
     });
     const color = positive ? "var(--green)" : "var(--red)";
-    const bgColor = positive ? "var(--green-bg)" : "var(--red-bg)";
     const areaPoints = `${pad},${h} ${points.join(" ")} ${w - pad},${h}`;
     return `
         <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
@@ -164,6 +199,13 @@ function formatPrice(price, currency) {
     return `${symbol}${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatChangeBadge(pct, label) {
+    const positive = pct >= 0;
+    const sign = positive ? "+" : "";
+    const cls = positive ? "positive" : "negative";
+    return `<span class="change-badge ${cls}" title="${label}">${label} ${sign}${pct}%</span>`;
+}
+
 // --- API Helpers ---
 async function api(url, options = {}) {
     try {
@@ -183,6 +225,8 @@ async function api(url, options = {}) {
 }
 
 // --- Render Stocks ---
+let cachedStocks = [];
+
 async function loadStocks() {
     const grid = document.getElementById("stocksGrid");
     const empty = document.getElementById("emptyState");
@@ -191,6 +235,7 @@ async function loadStocks() {
 
     try {
         const stocks = await api("/api/stocks");
+        cachedStocks = stocks;
         if (!stocks.length) {
             grid.innerHTML = "";
             empty.style.display = "block";
@@ -201,11 +246,13 @@ async function loadStocks() {
             .map((s) => {
                 const positive = s.change_pct >= 0;
                 const sign = positive ? "+" : "";
+                const wPct = s.weekly_change_pct || 0;
+                const mPct = s.monthly_change_pct || 0;
                 return `
-                <div class="stock-card" data-symbol="${s.symbol}">
+                <div class="stock-card" data-symbol="${s.symbol}" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
                     <div class="stock-card-header">
                         <span class="stock-symbol">${s.symbol}</span>
-                        <button class="stock-remove" onclick="removeStock('${s.symbol}')" title="Remove">
+                        <button class="stock-remove" onclick="event.stopPropagation(); removeStock('${s.symbol}')" title="Remove">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                             </svg>
@@ -217,6 +264,11 @@ async function loadStocks() {
                         <span class="stock-change ${positive ? "positive" : "negative"}">${sign}${s.change_pct}%</span>
                     </div>
                     <div class="stock-sparkline">${renderSparkline(s.sparkline, positive)}</div>
+                    <div class="stock-changes-row">
+                        ${formatChangeBadge(s.change_pct, t("daily_change"))}
+                        ${formatChangeBadge(wPct, t("weekly_change"))}
+                        ${formatChangeBadge(mPct, t("monthly_change"))}
+                    </div>
                     ${s.high ? `<div class="stock-meta">
                         <span>${t("high")} ${formatPrice(s.high, s.currency)}</span>
                         <span>${t("low")} ${formatPrice(s.low, s.currency)}</span>
@@ -249,6 +301,7 @@ async function addStock(symbol, name) {
             body: JSON.stringify({ symbol, name }),
         });
         showToast(t("toast_added"), "success");
+        closeDropdown();
         loadStocks();
     } catch (e) {
         if (e.message.includes("already")) {
@@ -257,6 +310,198 @@ async function addStock(symbol, name) {
             showToast(t("toast_error"), "error");
         }
     }
+}
+
+// --- Dropdown ---
+function closeDropdown() {
+    document.getElementById("dropdownPanel").classList.remove("open");
+    document.getElementById("stockSearch").value = "";
+    document.getElementById("searchResults").innerHTML = "";
+}
+
+// --- Chart ---
+let stockChart = null;
+
+async function openChart(symbol, name) {
+    const modal = document.getElementById("chartModal");
+    document.getElementById("chartModalTitle").textContent = name;
+    document.getElementById("chartModalSymbol").textContent = symbol;
+    modal.classList.add("active");
+
+    // Reset period buttons
+    document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
+    document.querySelector('.chart-period[data-period="1mo"]').classList.add("active");
+
+    await loadChartData(symbol, "1mo");
+}
+
+async function loadChartData(symbol, period) {
+    try {
+        const data = await api(`/api/stock/${encodeURIComponent(symbol)}/history?period=${period}`);
+        renderChart(data, period);
+    } catch (e) {
+        console.error("Chart error:", e);
+    }
+}
+
+function renderChart(data, period) {
+    const ctx = document.getElementById("stockChart").getContext("2d");
+
+    if (stockChart) {
+        stockChart.destroy();
+    }
+
+    const labels = data.map((d) => d.date);
+    const closes = data.map((d) => d.close);
+    const highs = data.map((d) => d.high);
+    const lows = data.map((d) => d.low);
+    const volumes = data.map((d) => d.volume);
+
+    const isPositive = closes.length >= 2 && closes[closes.length - 1] >= closes[0];
+    const lineColor = isPositive ? "#22c55e" : "#ef4444";
+    const bgColor = isPositive ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)";
+
+    stockChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: t("chart_close"),
+                    data: closes,
+                    borderColor: lineColor,
+                    backgroundColor: bgColor,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: period === "5d" ? 4 : 0,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: lineColor,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: "index",
+                intersect: false,
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: "#171d2b",
+                    titleColor: "#e2e8f0",
+                    bodyColor: "#8494a7",
+                    borderColor: "#1e2738",
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function (ctx) {
+                            const i = ctx.dataIndex;
+                            return [
+                                `${t("chart_close")}: ${closes[i]}`,
+                                `${t("chart_high")}: ${highs[i]}`,
+                                `${t("chart_low")}: ${lows[i]}`,
+                                `${t("chart_volume")}: ${formatVolume(volumes[i])}`,
+                            ];
+                        },
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { color: "rgba(30, 39, 56, 0.5)" },
+                    ticks: {
+                        color: "#5a6a7e",
+                        maxTicksLimit: 8,
+                        font: { family: "JetBrains Mono", size: 11 },
+                    },
+                },
+                y: {
+                    grid: { color: "rgba(30, 39, 56, 0.5)" },
+                    ticks: {
+                        color: "#5a6a7e",
+                        font: { family: "JetBrains Mono", size: 11 },
+                    },
+                },
+            },
+        },
+    });
+
+    // Stats
+    const statsEl = document.getElementById("chartStats");
+    if (data.length >= 2) {
+        const first = data[0].close;
+        const last = data[data.length - 1].close;
+        const change = ((last - first) / first * 100).toFixed(2);
+        const maxH = Math.max(...highs);
+        const minL = Math.min(...lows);
+        const positive = parseFloat(change) >= 0;
+        const sign = positive ? "+" : "";
+        statsEl.innerHTML = `
+            <div class="chart-stat">
+                <span class="chart-stat-label">${t("chart_close")}</span>
+                <span class="chart-stat-value">${last}</span>
+            </div>
+            <div class="chart-stat">
+                <span class="chart-stat-label">Variation</span>
+                <span class="chart-stat-value ${positive ? 'positive' : 'negative'}">${sign}${change}%</span>
+            </div>
+            <div class="chart-stat">
+                <span class="chart-stat-label">${t("chart_high")}</span>
+                <span class="chart-stat-value">${maxH}</span>
+            </div>
+            <div class="chart-stat">
+                <span class="chart-stat-label">${t("chart_low")}</span>
+                <span class="chart-stat-value">${minL}</span>
+            </div>
+        `;
+    }
+}
+
+// --- Movers ---
+async function loadMovers() {
+    const dailyEl = document.getElementById("dailyMovers");
+    const weeklyEl = document.getElementById("weeklyMovers");
+
+    dailyEl.innerHTML = `<div class="movers-loading">${t("loading")}</div>`;
+    weeklyEl.innerHTML = `<div class="movers-loading">${t("loading")}</div>`;
+
+    try {
+        const data = await api("/api/movers");
+
+        if (!data.daily.length) {
+            dailyEl.innerHTML = `<div class="movers-empty">${t("movers_empty")}</div>`;
+            weeklyEl.innerHTML = `<div class="movers-empty">${t("movers_empty")}</div>`;
+            return;
+        }
+
+        dailyEl.innerHTML = data.daily.map((s, i) => renderMoverRow(s, i, "change_pct")).join("");
+        weeklyEl.innerHTML = data.weekly.map((s, i) => renderMoverRow(s, i, "weekly_change_pct")).join("");
+    } catch (e) {
+        dailyEl.innerHTML = `<div class="movers-empty">${t("toast_error")}</div>`;
+        weeklyEl.innerHTML = "";
+    }
+}
+
+function renderMoverRow(s, index, field) {
+    const pct = s[field] || 0;
+    const positive = pct >= 0;
+    const sign = positive ? "+" : "";
+    const cls = positive ? "positive" : "negative";
+    const arrow = positive ? "▲" : "▼";
+    return `
+        <div class="mover-row" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
+            <span class="mover-rank">${index + 1}</span>
+            <div class="mover-info">
+                <span class="mover-name">${s.name}</span>
+                <span class="mover-symbol">${s.symbol}</span>
+            </div>
+            <span class="mover-price">${formatPrice(s.price, s.currency)}</span>
+            <span class="mover-change ${cls}">${arrow} ${sign}${pct}%</span>
+        </div>`;
 }
 
 // --- Settings ---
@@ -276,9 +521,10 @@ async function loadSettings() {
 async function saveSettings() {
     const keys = [
         "pushover_user_key", "pushover_api_token",
-        "daily_enabled", "daily_time",
+        "daily_enabled", "daily_time", "daily_monthly_change",
         "weekly_enabled", "weekly_day", "weekly_time",
         "alert_enabled", "alert_threshold",
+        "movers_enabled", "movers_time", "movers_count",
     ];
     const data = {};
     keys.forEach((k) => {
@@ -343,12 +589,12 @@ function initSearch() {
                 const items = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
                 results.innerHTML = items
                     .map((s) => `
-                        <div class="search-result-item" onclick="addStock('${s.symbol}', '${s.name.replace(/'/g, "\\'")}'); this.remove();">
-                            <div class="search-result-info">
-                                <span class="search-result-symbol">${s.symbol}</span>
-                                <span class="search-result-name">${s.name}</span>
+                        <div class="dropdown-result-item" onclick="addStock('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
+                            <div class="dropdown-result-info">
+                                <span class="dropdown-result-symbol">${s.symbol}</span>
+                                <span class="dropdown-result-name">${s.name}</span>
                             </div>
-                            <span class="search-result-add">+ ADD</span>
+                            <span class="dropdown-result-add">+ ADD</span>
                         </div>`)
                     .join("");
             } catch (e) {
@@ -368,6 +614,7 @@ function navigateTo(page) {
     if (navItem) navItem.classList.add("active");
 
     if (page === "dashboard") loadStocks();
+    if (page === "movers") loadMovers();
     if (page === "settings") loadSettings();
     if (page === "history") loadHistory();
 }
@@ -389,34 +636,61 @@ document.addEventListener("DOMContentLoaded", () => {
         currentLang = currentLang === "en" ? "fr" : "en";
         localStorage.setItem("sn_lang", currentLang);
         applyLanguage();
-        // Re-render current page
         const activePage = document.querySelector(".nav-item.active");
         if (activePage) navigateTo(activePage.dataset.page);
     });
 
-    // Modal
-    const modal = document.getElementById("addStockModal");
-    document.getElementById("addStockBtn").addEventListener("click", () => {
-        modal.classList.add("active");
-        document.getElementById("stockSearch").focus();
+    // Dropdown toggle
+    const addBtn = document.getElementById("addStockBtn");
+    const dropdownPanel = document.getElementById("dropdownPanel");
+
+    addBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdownPanel.classList.toggle("open");
+        if (dropdownPanel.classList.contains("open")) {
+            document.getElementById("stockSearch").focus();
+        }
     });
-    document.getElementById("closeModal").addEventListener("click", () => {
-        modal.classList.remove("active");
-        document.getElementById("stockSearch").value = "";
-        document.getElementById("searchResults").innerHTML = "";
-    });
-    modal.addEventListener("click", (e) => {
-        if (e.target === modal) {
-            modal.classList.remove("active");
+
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#stockDropdown")) {
+            closeDropdown();
         }
     });
 
     // Popular chips
     document.querySelectorAll(".chip").forEach((chip) => {
-        chip.addEventListener("click", async () => {
+        chip.addEventListener("click", async (e) => {
+            e.stopPropagation();
             await addStock(chip.dataset.symbol, chip.dataset.name);
             chip.classList.add("added");
-            chip.textContent = "✓ " + chip.textContent;
+            chip.textContent = "✓ " + chip.dataset.name;
+        });
+    });
+
+    // Chart modal
+    const chartModal = document.getElementById("chartModal");
+    document.getElementById("closeChartModal").addEventListener("click", () => {
+        chartModal.classList.remove("active");
+        if (stockChart) stockChart.destroy();
+        stockChart = null;
+    });
+    chartModal.addEventListener("click", (e) => {
+        if (e.target === chartModal) {
+            chartModal.classList.remove("active");
+            if (stockChart) stockChart.destroy();
+            stockChart = null;
+        }
+    });
+
+    // Chart period buttons
+    document.querySelectorAll(".chart-period").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            const symbol = document.getElementById("chartModalSymbol").textContent;
+            loadChartData(symbol, btn.dataset.period);
         });
     });
 
@@ -427,6 +701,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("testNotifBtn").addEventListener("click", async () => {
         try {
             await api("/api/test-notification", { method: "POST" });
+            showToast(t("toast_test_ok"), "success");
+        } catch (e) {
+            showToast(t("toast_test_fail"), "error");
+        }
+    });
+
+    // Test movers
+    document.getElementById("testMoversBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/test-movers", { method: "POST" });
             showToast(t("toast_test_ok"), "success");
         } catch (e) {
             showToast(t("toast_test_fail"), "error");
