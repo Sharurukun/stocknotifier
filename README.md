@@ -23,49 +23,53 @@ Built for Synology NAS (Docker/Container Manager).
   - Create an Application to get your **API Token**
   - Note your **User Key**
 
-### 2. Transfer Files
+### 2. Install from Container Manager (recommended)
 
-Copy this entire `stocknotifier/` folder to your NAS:
+**Option A — Registry (like linuxserver images):**
+1. Open **Container Manager** → **Registry**
+2. Search for `ghcr.io/sharurukun/stocknotifier`
+3. Download the `latest` tag
+4. Go to **Image** → select `stocknotifier` → **Run**
+5. Configure:
+   - **Port**: local port `7077` → container port `8080`
+   - **Volume**: create a folder `/volume1/docker/stocknotifier/data` and map it to `/data`
+   - **Environment**: `TZ=Europe/Paris`, `DATA_DIR=/data`
+6. Click **Apply**
 
+**Option B — Docker Compose (Project):**
+1. Create the folder `/volume1/docker/stocknotifier/` on your NAS
+2. Copy only the `docker-compose.yml` file into it
+3. Open **Container Manager** → **Project**
+4. Click **Create**
+5. Set project name: `stocknotifier`
+6. Set path: `/volume1/docker/stocknotifier`
+7. It will auto-detect `docker-compose.yml` and pull the image
+8. Click **Run**
+
+**Option C — SSH:**
+```bash
+ssh user@your-nas-ip
+mkdir -p /volume1/docker/stocknotifier
+cd /volume1/docker/stocknotifier
+# Download docker-compose.yml then:
+sudo docker-compose up -d
 ```
-/volume1/docker/stocknotifier/
-├── app/
-│   └── main.py
-├── static/
-│   ├── css/style.css
-│   └── js/app.js
-├── templates/
-│   └── index.html
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
 
-**Options to transfer:**
-- **File Station** — drag & drop the folder
-- **SSH/SCP** — `scp -r stocknotifier/ user@nas:/volume1/docker/`
-- **Synology Drive** — sync from your computer
+### 3. Build from source (advanced)
 
-### 3. Build & Run
+If you prefer to build locally instead of pulling from the registry:
 
-**Option A — Container Manager UI:**
-1. Open **Container Manager** → **Project**
-2. Click **Create**
-3. Set project name: `stocknotifier`
-4. Set path: `/volume1/docker/stocknotifier`
-5. It will auto-detect `docker-compose.yml`
-6. Click **Build & Run**
-
-**Option B — SSH:**
 ```bash
 ssh user@your-nas-ip
 cd /volume1/docker/stocknotifier
-sudo docker-compose up -d --build
+# Clone the full repo, then:
+sudo docker build -t stocknotifier .
+sudo docker run -d --name stocknotifier -p 7077:8080 -v ./data:/data -e TZ=Europe/Paris -e DATA_DIR=/data stocknotifier
 ```
 
 ### 4. Access
 
-Open your browser: **http://your-nas-ip:8080**
+Open your browser: **http://your-nas-ip:7077**
 
 ### 5. Configure
 
@@ -86,16 +90,18 @@ Open your browser: **http://your-nas-ip:8080**
 
 ```bash
 cd /volume1/docker/stocknotifier
-sudo docker-compose down
-sudo docker-compose up -d --build
+sudo docker-compose pull
+sudo docker-compose up -d
 ```
+
+Or from Container Manager: **Project** → `stocknotifier` → **Action** → **Build**
 
 ## Port Conflict?
 
-Change the port in `docker-compose.yml`:
+Change the host port in `docker-compose.yml`:
 ```yaml
 ports:
-  - "9090:8080"  # Access on port 9090 instead
+  - "9090:8080"  # Access on port 9090 instead of 7077
 ```
 
 ## Stack

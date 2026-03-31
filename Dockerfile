@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 LABEL maintainer="StockNotifier"
 LABEL description="Self-hosted stock monitoring with Pushover notifications"
+LABEL org.opencontainers.image.source="https://github.com/sharurukun/stocknotifier"
+LABEL org.opencontainers.image.title="StockNotifier"
+LABEL org.opencontainers.image.description="Self-hosted stock monitoring dashboard with Pushover notifications"
 
 WORKDIR /app
 
