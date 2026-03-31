@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
-import requests
 import yfinance as yf
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -118,16 +117,11 @@ def set_setting(key: str, value: str):
 
 
 # --- Stock Data ---
-# --- Session to avoid Yahoo Finance bans ---
-yf_session = requests.Session()
-yf_session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-})
 
 
 def fetch_stock_data(symbol: str, period: str = "5d") -> dict | None:
     try:
-        ticker = yf.Ticker(symbol, session=yf_session)
+        ticker = yf.Ticker(symbol)
         hist = ticker.history(period=period)
         if hist.empty:
             return None
@@ -160,7 +154,7 @@ def fetch_stock_data(symbol: str, period: str = "5d") -> dict | None:
 def fetch_stock_data_extended(symbol: str) -> dict | None:
     """Fetch stock data with monthly change included."""
     try:
-        ticker = yf.Ticker(symbol, session=yf_session)
+        ticker = yf.Ticker(symbol)
         hist_5d = ticker.history(period="5d")
         hist_1mo = ticker.history(period="1mo")
         if hist_5d.empty:
@@ -209,7 +203,7 @@ def search_stocks(query: str) -> list:
     try:
         results = []
         # Try direct lookup first
-        ticker = yf.Ticker(query.upper(), session=yf_session)
+        ticker = yf.Ticker(query.upper())
         info = ticker.info
         if info and info.get("shortName"):
             results.append({
@@ -589,7 +583,7 @@ async def api_get_history(limit: int = 20):
 @app.get("/api/stock/{symbol}/history")
 async def api_stock_history(symbol: str, period: str = "1mo"):
     try:
-        ticker = yf.Ticker(symbol.upper(), session=yf_session)
+        ticker = yf.Ticker(symbol.upper())
         hist = ticker.history(period=period)
         if hist.empty:
             return []
