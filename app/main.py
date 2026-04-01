@@ -199,43 +199,178 @@ def fetch_stock_data_extended(symbol: str) -> dict | None:
 
 
 def search_stocks(query: str) -> list:
-    """Search for stocks using yfinance."""
+    """Search for stocks using yfinance with universal coverage."""
     try:
         results = []
+        query_upper = query.upper().strip()
+        
+        # Handle ISIN format (starts with E or I)
+        if query_upper.startswith("E") or query_upper.startswith("I"):
+            # ISIN lookup - try common prefixes
+            isin_candidates = [
+                f"{query_upper}",
+                f"{query_upper[:8]}US",
+                f"{query_upper[:8]}GB",
+                f"{query_upper[:8]}FR",
+                f"{query_upper[:8]}DE",
+            ]
+            for isin in isin_candidates:
+                try:
+                    ticker = yf.Ticker(isin)
+                    info = ticker.info
+                    if info and info.get("shortName") and info.get("symbol"):
+                        results.append({
+                            "symbol": info.get("symbol", isin),
+                            "name": info.get("shortName", info.get("longName", isin)),
+                            "exchange": info.get("exchange", "Unknown"),
+                            "type": info.get("quoteType", "Stock"),
+                            "currency": info.get("currency", "USD"),
+                            "isin": isin,
+                        })
+                        break
+                except:
+                    continue
+            return results[:10]
+        
         # Try direct lookup first
-        ticker = yf.Ticker(query.upper())
-        info = ticker.info
-        if info and info.get("shortName"):
-            results.append({
-                "symbol": query.upper(),
-                "name": info.get("shortName", query.upper()),
-                "exchange": info.get("exchange", ""),
-                "type": info.get("quoteType", ""),
-            })
-
-        # Common indices and popular searches
-        popular = {
-            "^GSPC": "S&P 500",
-            "^DJI": "Dow Jones Industrial Average",
-            "^IXIC": "NASDAQ Composite",
-            "^FCHI": "CAC 40",
-            "^GDAXI": "DAX",
-            "^FTSE": "FTSE 100",
-            "^N225": "Nikkei 225",
-            "BTC-USD": "Bitcoin USD",
-            "ETH-USD": "Ethereum USD",
-        }
-        q = query.upper()
-        for sym, name in popular.items():
-            if q in sym.upper() or q in name.upper():
-                if not any(r["symbol"] == sym for r in results):
-                    results.append({
-                        "symbol": sym,
-                        "name": name,
-                        "exchange": "Index",
-                        "type": "INDEX",
-                    })
-        return results[:10]
+        try:
+            ticker = yf.Ticker(query_upper)
+            info = ticker.info
+            
+            # Check if we got valid data
+            if info and (info.get("shortName") or info.get("longName") or info.get("symbol")):
+                results.append({
+                    "symbol": info.get("symbol", query_upper),
+                    "name": info.get("shortName", info.get("longName", query_upper)),
+                    "exchange": info.get("exchange", "Unknown"),
+                    "type": info.get("quoteType", "Stock"),
+                    "currency": info.get("currency", "USD"),
+                })
+        except Exception as e:
+            logger.debug(f"Direct lookup failed for {query}: {e}")
+        
+        # Try common ticker suffixes for European stocks
+        if not results and len(query) >= 3:
+            suffixes = [
+                (query_upper + ".PA", "Paris"),
+                (query_upper + ".L", "London"),
+                (query_upper + ".DE", "Xetra"),
+                (query_upper + ".XETRA", "Xetra"),
+                (query_upper + ".EU", "Euronext"),
+                (query_upper + ".NL", "Amsterdam"),
+                (query_upper + ".BR", "Brussels"),
+                (query_upper + ".AT", "Vienna"),
+                (query_upper + ".CH", "Swiss"),
+                (query_upper + ".JP", "Tokyo"),
+                (query_upper + ".HK", "Hong Kong"),
+                (query_upper + ".SG", "Singapore"),
+                (query_upper + ".AU", "Sydney"),
+                (query_upper + ".KR", "Korea"),
+            ]
+            
+            for suffix, exchange_name in suffixes:
+                try:
+                    ticker = yf.Ticker(suffix)
+                    info = ticker.info
+                    if info and (info.get("shortName") or info.get("longName")):
+                        results.append({
+                            "symbol": info.get("symbol", suffix),
+                            "name": info.get("shortName", info.get("longName", suffix)),
+                            "exchange": exchange_name,
+                            "type": info.get("quoteType", "Stock"),
+                            "currency": info.get("currency", "USD"),
+                        })
+                        break
+                except:
+                    continue
+        
+        # Try name-based search (common company names)
+        if not results and len(query) >= 3:
+            name_searches = {
+                "airbus": "AIR.PA",
+                "total": "TTE.PA",
+                "renault": "RNO.PA",
+                "santander": "SAN.MC",
+                "shell": "SHEL.L",
+                "bp": "BP.L",
+                "tesla": "TSLA",
+                "apple": "AAPL",
+                "microsoft": "MSFT",
+                "amazon": "AMZN",
+                "google": "GOOGL",
+                "nvidia": "NVDA",
+                "bitcoin": "BTC-USD",
+                "ethereum": "ETH-USD",
+                "sp 500": "^GSPC",
+                "dow": "^DJI",
+                "nasdaq": "^IXIC",
+                "cac 40": "^FCHI",
+                "dax": "^GDAXI",
+                "ftse": "^FTSE",
+                "nikkei": "^N225",
+            }
+            
+            query_lower = query.lower()
+            for name_key, symbol in name_searches.items():
+                if name_key in query_lower:
+                    try:
+                        ticker = yf.Ticker(symbol)
+                        info = ticker.info
+                        if info and info.get("shortName"):
+                            results.append({
+                                "symbol": info.get("symbol", symbol),
+                                "name": info.get("shortName", info.get("longName", symbol)),
+                                "exchange": info.get("exchange", "Unknown"),
+                                "type": info.get("quoteType", "Stock"),
+                                "currency": info.get("currency", "USD"),
+                            })
+                            break
+                    except:
+                        continue
+        
+        # Try crypto pairs
+        if not results and any(x in query_lower for x in ["bitcoin", "btc", "ethereum", "eth", "ripple", "xrp", "litecoin", "ltc", "doge", "solana", "sol"]):
+            crypto_pairs = {
+                "bitcoin": "BTC-USD",
+                "btc": "BTC-USD",
+                "ethereum": "ETH-USD",
+                "eth": "ETH-USD",
+                "ripple": "XRP-USD",
+                "xrp": "XRP-USD",
+                "litecoin": "LTC-USD",
+                "ltc": "LTC-USD",
+                "dogecoin": "DOGE-USD",
+                "doge": "DOGE-USD",
+                "solana": "SOL-USD",
+                "sol": "SOL-USD",
+            }
+            
+            for name_key, symbol in crypto_pairs.items():
+                if name_key in query_lower:
+                    try:
+                        ticker = yf.Ticker(symbol)
+                        info = ticker.info
+                        if info and info.get("shortName"):
+                            results.append({
+                                "symbol": info.get("symbol", symbol),
+                                "name": info.get("shortName", info.get("longName", symbol)),
+                                "exchange": "Crypto",
+                                "type": "CRYPTO",
+                                "currency": info.get("currency", "USD"),
+                            })
+                            break
+                    except:
+                        continue
+        
+        # Remove duplicates and limit results
+        seen_symbols = set()
+        unique_results = []
+        for r in results:
+            if r["symbol"] not in seen_symbols:
+                seen_symbols.add(r["symbol"])
+                unique_results.append(r)
+        
+        return unique_results[:10]
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
@@ -258,6 +393,7 @@ def send_pushover(message: str, title: str = "StockNotifier") -> bool:
                 "message": message,
                 "html": 1,
             },
+            timeout=10.0,
         )
         success = resp.status_code == 200
         with get_db() as conn:
@@ -502,7 +638,9 @@ async def api_get_stocks():
 async def api_search_stocks(q: str = ""):
     if len(q) < 1:
         return []
-    return search_stocks(q)
+    results = search_stocks(q)
+    # Add loading/error status for frontend
+    return results
 
 
 @app.post("/api/stocks")

@@ -570,156 +570,135 @@ async function loadHistory() {
     }
 }
 
-// --- Search ---
-let searchTimeout = null;
+// --- Popular ---
+const popularStocks = [
+    { symbol: "AAPL", name: "Apple Inc." },
+    { symbol: "MSFT", name: "Microsoft Corp." },
+    { symbol: "GOOGL", name: "Alphabet Inc." },
+    { symbol: "AMZN", name: "Amazon.com Inc." },
+    { symbol: "TSLA", name: "Tesla Inc." },
+    { symbol: "BTC-USD", name: "Bitcoin USD" },
+    { symbol: "ETH-USD", name: "Ethereum USD" },
+    { symbol: "^GSPC", name: "S&P 500" },
+    { symbol: "^DJI", name: "Dow Jones" },
+    { symbol: "^IXIC", name: "NASDAQ" },
+];
 
-function initSearch() {
-    const input = document.getElementById("stockSearch");
-    const results = document.getElementById("searchResults");
-
-    input.addEventListener("input", () => {
-        clearTimeout(searchTimeout);
-        const q = input.value.trim();
-        if (q.length < 1) {
-            results.innerHTML = "";
-            return;
-        }
-        searchTimeout = setTimeout(async () => {
-            try {
-                const items = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
-                results.innerHTML = items
-                    .map((s) => `
-                        <div class="dropdown-result-item" onclick="addStock('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
-                            <div class="dropdown-result-info">
-                                <span class="dropdown-result-symbol">${s.symbol}</span>
-                                <span class="dropdown-result-name">${s.name}</span>
-                            </div>
-                            <span class="dropdown-result-add">+ ADD</span>
-                        </div>`)
-                    .join("");
-            } catch (e) {
-                results.innerHTML = "";
-            }
-        }, 400);
-    });
-}
-
-// --- Navigation ---
-function navigateTo(page) {
-    document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
-    document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
-    const target = document.getElementById(`page-${page}`);
-    const navItem = document.querySelector(`[data-page="${page}"]`);
-    if (target) target.classList.add("active");
-    if (navItem) navItem.classList.add("active");
-
-    if (page === "dashboard") loadStocks();
-    if (page === "movers") loadMovers();
-    if (page === "settings") loadSettings();
-    if (page === "history") loadHistory();
+function renderPopular() {
+    const container = document.getElementById("popularContainer");
+    container.innerHTML = `
+        <h3>${t("popular_title")}</h3>
+        <div class="popular-grid">
+            ${popularStocks.map((s) => `
+                <div class="popular-item" onclick="addStock('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
+                    <span class="popular-symbol">${s.symbol}</span>
+                    <span class="popular-name">${s.name}</span>
+                </div>`
+            ).join("")}
+        </div>
+    `;
 }
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     applyLanguage();
+    initSearch();
+    loadStocks();
+    loadMovers();
+    loadSettings();
+    renderPopular();
+    loadHistory();
 
-    // Navigation
-    document.querySelectorAll(".nav-item").forEach((item) => {
-        item.addEventListener("click", (e) => {
-            e.preventDefault();
-            navigateTo(item.dataset.page);
-        });
+    document.getElementById("addStockBtn").addEventListener("click", () => {
+        document.getElementById("stockSearch").focus();
     });
 
-    // Language toggle
+    document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
+    document.getElementById("testNotifBtn").addEventListener("click", () => testNotification());
+    document.getElementById("testMoversBtn").addEventListener("click", () => testMovers());
     document.getElementById("langToggle").addEventListener("click", () => {
         currentLang = currentLang === "en" ? "fr" : "en";
-        localStorage.setItem("sn_lang", currentLang);
         applyLanguage();
-        const activePage = document.querySelector(".nav-item.active");
-        if (activePage) navigateTo(activePage.dataset.page);
     });
+});
 
-    // Dropdown toggle
-    const addBtn = document.getElementById("addStockBtn");
-    const dropdownPanel = document.getElementById("dropdownPanel");
+// --- Search ---
+let searchTimeout = null;
 
-    addBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dropdownPanel.classList.toggle("open");
-        if (dropdownPanel.classList.contains("open")) {
-            document.getElementById("stockSearch").focus();
+function initSearch() {
+    const input = document.getElementById("stockSearch");
+    const dropdown = document.getElementById("dropdownPanel");
+    const results = document.getElementById("searchResults");
+
+    input.addEventListener("input", () => {
+        clearTimeout(searchTimeout);
+        const q = input.value.trim();
+        if (q.length < 2) {
+            closeDropdown();
+            return;
         }
+        searchTimeout = setTimeout(async () => {
+            try {
+                const results = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
+                if (!results.length) {
+                    results.innerHTML = `<div class="search-result-item no-results">${t("empty_subtitle")}</div>`;
+                    dropdown.classList.add("open");
+                    return;
+                }
+                results.innerHTML = results
+                    .map((r) => `
+                        <div class="search-result-item" onclick="addStock('${r.symbol}', '${r.name.replace(/'/g, "\\'")}')">
+                            <span class="result-symbol">${r.symbol}</span>
+                            <span class="result-name">${r.name}</span>
+                            <span class="result-meta">${r.exchange || "Unknown"} • ${r.type || "Stock"} • ${r.currency || "USD"}</span>
+                        </div>`
+                    )
+                    .join("");
+                dropdown.classList.add("open");
+            } catch (e) {
+                results.innerHTML = `<div class="search-result-item error">${t("toast_error")}</div>`;
+                dropdown.classList.add("open");
+            }
+        }, 300);
     });
 
-    // Close dropdown on outside click
     document.addEventListener("click", (e) => {
-        if (!e.target.closest("#stockDropdown")) {
+        if (!e.target.closest(".search-dropdown")) {
             closeDropdown();
         }
     });
+}
 
-    // Popular chips
-    document.querySelectorAll(".chip").forEach((chip) => {
-        chip.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await addStock(chip.dataset.symbol, chip.dataset.name);
-            chip.classList.add("added");
-            chip.textContent = "✓ " + chip.dataset.name;
-        });
+// --- Test ---
+async function testNotification() {
+    try {
+        await api("/api/test-notification", { method: "POST" });
+        showToast(t("toast_test_ok"), "success");
+    } catch (e) {
+        showToast(t("toast_test_fail"), "error");
+    }
+}
+
+async function testMovers() {
+    try {
+        await api("/api/test-movers", { method: "POST" });
+        showToast(t("toast_test_ok"), "success");
+    } catch (e) {
+        showToast(t("toast_test_fail"), "error");
+    }
+}
+
+// --- Modal ---
+function closeChart() {
+    document.getElementById("chartModal").classList.remove("active");
+}
+
+// --- Period Buttons ---
+document.querySelectorAll(".chart-period").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const symbol = document.getElementById("chartModalSymbol").textContent;
+        loadChartData(symbol, btn.dataset.period);
     });
-
-    // Chart modal
-    const chartModal = document.getElementById("chartModal");
-    document.getElementById("closeChartModal").addEventListener("click", () => {
-        chartModal.classList.remove("active");
-        if (stockChart) stockChart.destroy();
-        stockChart = null;
-    });
-    chartModal.addEventListener("click", (e) => {
-        if (e.target === chartModal) {
-            chartModal.classList.remove("active");
-            if (stockChart) stockChart.destroy();
-            stockChart = null;
-        }
-    });
-
-    // Chart period buttons
-    document.querySelectorAll(".chart-period").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
-            btn.classList.add("active");
-            const symbol = document.getElementById("chartModalSymbol").textContent;
-            loadChartData(symbol, btn.dataset.period);
-        });
-    });
-
-    // Settings save
-    document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
-
-    // Test notification
-    document.getElementById("testNotifBtn").addEventListener("click", async () => {
-        try {
-            await api("/api/test-notification", { method: "POST" });
-            showToast(t("toast_test_ok"), "success");
-        } catch (e) {
-            showToast(t("toast_test_fail"), "error");
-        }
-    });
-
-    // Test movers
-    document.getElementById("testMoversBtn").addEventListener("click", async () => {
-        try {
-            await api("/api/test-movers", { method: "POST" });
-            showToast(t("toast_test_ok"), "success");
-        } catch (e) {
-            showToast(t("toast_test_fail"), "error");
-        }
-    });
-
-    // Init search
-    initSearch();
-
-    // Load dashboard
-    loadStocks();
 });
