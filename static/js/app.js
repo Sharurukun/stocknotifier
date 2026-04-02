@@ -42,6 +42,12 @@ const translations = {
         alert_hint: "Get notified when a stock moves more than this percentage in a day.",
         day_mon: "Monday", day_tue: "Tuesday", day_wed: "Wednesday",
         day_thu: "Thursday", day_fri: "Friday", day_sat: "Saturday", day_sun: "Sunday",
+        nav_financials: "Financials",
+        financials_subtitle: "Financial statements, ratios & company overview",
+        financials_empty: "Search for a company to view its financials",
+        fin_income: "Income Statement",
+        fin_balance: "Balance Sheet",
+        fin_cashflow: "Cash Flow",
         toast_saved: "Settings saved",
         toast_added: "Stock added",
         toast_removed: "Stock removed",
@@ -102,6 +108,12 @@ const translations = {
         alert_hint: "Recevez une notification quand une action bouge de plus de ce pourcentage en un jour.",
         day_mon: "Lundi", day_tue: "Mardi", day_wed: "Mercredi",
         day_thu: "Jeudi", day_fri: "Vendredi", day_sat: "Samedi", day_sun: "Dimanche",
+        nav_financials: "Financiers",
+        financials_subtitle: "États financiers, ratios & présentation de l'entreprise",
+        financials_empty: "Recherchez une entreprise pour voir ses financiers",
+        fin_income: "Compte de résultat",
+        fin_balance: "Bilan",
+        fin_cashflow: "Flux de trésorerie",
         toast_saved: "Paramètres enregistrés",
         toast_added: "Action ajoutée",
         toast_removed: "Action supprimée",
@@ -716,10 +728,244 @@ function renderPopular() {
     `;
 }
 
+// --- Financials ---
+
+function formatFinNum(val, currency) {
+    if (val === null || val === undefined) return "—";
+    const abs = Math.abs(val);
+    const sign = val < 0 ? "-" : "";
+    const sym = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+    if (abs >= 1e12) return `${sign}${sym}${(abs / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9)  return `${sign}${sym}${(abs / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6)  return `${sign}${sym}${(abs / 1e6).toFixed(2)}M`;
+    if (abs >= 1e3)  return `${sign}${sym}${(abs / 1e3).toFixed(1)}K`;
+    return `${sign}${sym}${abs.toFixed(2)}`;
+}
+
+function formatRatioVal(val, key) {
+    if (val === null || val === undefined) return { text: "—", cls: "na" };
+    // Large market-cap / EV values
+    if (["Market Cap", "Enterprise Value"].includes(key)) {
+        const abs = Math.abs(val);
+        let text;
+        if (abs >= 1e12) text = `$${(abs / 1e12).toFixed(2)}T`;
+        else if (abs >= 1e9) text = `$${(abs / 1e9).toFixed(2)}B`;
+        else text = `$${(abs / 1e6).toFixed(0)}M`;
+        return { text, cls: "" };
+    }
+    // Percentages
+    if (["Gross Margin","EBITDA Margin","Operating Margin","Net Margin","ROE","ROA",
+         "Dividend Yield","Payout Ratio","Revenue Growth","Earnings Growth","EPS Growth (TTM)"].includes(key)) {
+        const cls = val >= 0 ? "positive" : "negative";
+        return { text: `${val >= 0 ? "+" : ""}${val.toFixed(1)}%`, cls };
+    }
+    // Multiples
+    if (["P/E (TTM)","Forward P/E","PEG Ratio","EV/EBITDA","EV/Revenue","P/B","P/S (TTM)"].includes(key)) {
+        return { text: `${val.toFixed(1)}x`, cls: "" };
+    }
+    return { text: val.toFixed(2), cls: "" };
+}
+
+function calcYoYGrowth(data, year, prevYear) {
+    const curr = data[year], prev = data[prevYear];
+    if (curr == null || prev == null || prev === 0) return null;
+    return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+// Rows that should be visually highlighted (totals/subtotals)
+const HIGHLIGHT_ROWS = new Set([
+    "Total Revenue", "Gross Profit", "Operating Income (EBIT)", "EBITDA", "Net Income",
+    "Total Assets", "Total Liabilities", "Shareholders' Equity",
+    "Operating Cash Flow", "Free Cash Flow",
+]);
+
+// Rows where a separator line should appear above
+const SEPARATOR_ROWS = new Set([
+    "Operating Income (EBIT)", "EBITDA", "Pre-tax Income", "Net Income",
+    "Total Assets", "Short-term Debt", "Total Liabilities", "Shareholders' Equity",
+    "Operating Cash Flow", "Free Cash Flow", "Financing Cash Flow",
+]);
+
+function renderFinTable(stmtData, years, currency) {
+    if (!stmtData || !Object.keys(stmtData).length) {
+        return `<div class="fin-empty">No data available</div>`;
+    }
+    const cols = years.slice(0, 4); // max 4 years
+    let html = `<table class="fin-table"><thead><tr>
+        <th>Metric</th>
+        ${cols.map(y => `<th>${y}</th>`).join("")}
+    </tr></thead><tbody>`;
+
+    for (const [metric, values] of Object.entries(stmtData)) {
+        const highlight = HIGHLIGHT_ROWS.has(metric) ? " fin-row-highlight" : "";
+        const separator = SEPARATOR_ROWS.has(metric) ? " fin-row-separator" : "";
+        html += `<tr class="${highlight}${separator}">`;
+        html += `<td>${metric}</td>`;
+        cols.forEach((yr, i) => {
+            const val = values?.[yr];
+            const formatted = formatFinNum(val, currency);
+            let cls = "";
+            // Color negative values like Net Income, Free Cash Flow
+            if (val !== null && val !== undefined && ["Net Income","Free Cash Flow","Operating Cash Flow"].includes(metric)) {
+                cls = val >= 0 ? "positive" : "negative";
+            }
+            // Show YoY growth on Revenue and Net Income
+            let growth = "";
+            if (["Total Revenue","Net Income","EBITDA","Operating Cash Flow"].includes(metric) && i < cols.length - 1) {
+                const g = calcYoYGrowth(values, yr, cols[i + 1]);
+                if (g !== null) {
+                    const gc = g >= 0 ? "positive" : "negative";
+                    growth = `<br><span class="growth ${gc}">${g >= 0 ? "▲" : "▼"} ${Math.abs(g).toFixed(1)}%</span>`;
+                }
+            }
+            html += `<td class="${cls}">${formatted}${growth}</td>`;
+        });
+        html += `</tr>`;
+    }
+    html += `</tbody></table>`;
+    return html;
+}
+
+function renderFinRatios(ratios) {
+    return Object.entries(ratios).map(([group, items]) => {
+        const rows = Object.entries(items).map(([key, val]) => {
+            const { text, cls } = formatRatioVal(val, key);
+            return `<div class="fin-ratio-row">
+                <span class="fin-ratio-name">${key}</span>
+                <span class="fin-ratio-val ${cls}">${text}</span>
+            </div>`;
+        }).join("");
+        return `<div class="fin-ratio-group">
+            <div class="fin-ratio-group-title">${group}</div>
+            ${rows}
+        </div>`;
+    }).join("");
+}
+
+function renderFinCompany(c) {
+    const fmtCap = c.market_cap ? formatFinNum(c.market_cap, c.currency) : "—";
+    const fmtEV  = c.enterprise_value ? formatFinNum(c.enterprise_value, c.currency) : "—";
+    const price  = c.current_price != null ? `${c.current_price.toFixed(2)} ${c.currency}` : "—";
+    const hi52   = c.week52_high != null ? c.week52_high.toFixed(2) : "—";
+    const lo52   = c.week52_low  != null ? c.week52_low.toFixed(2)  : "—";
+
+    const badges = [
+        c.exchange && `<span class="fin-badge accent">${c.exchange}</span>`,
+        c.sector   && `<span class="fin-badge">${c.sector}</span>`,
+        c.industry && `<span class="fin-badge">${c.industry}</span>`,
+        c.country  && `<span class="fin-badge">${c.country}</span>`,
+        c.employees && `<span class="fin-badge">${Number(c.employees).toLocaleString()} employees</span>`,
+    ].filter(Boolean).join("");
+
+    const website = c.website
+        ? `<a href="${c.website}" target="_blank" rel="noopener" class="fin-badge" style="text-decoration:none;color:var(--accent)">${c.website.replace(/^https?:\/\//, "")}</a>`
+        : "";
+
+    return `
+        <div class="fin-company-top">
+            <div>
+                <div class="fin-company-name">${c.name} <span style="color:var(--text-muted);font-size:0.9rem;font-weight:400">${c.symbol}</span></div>
+                <div class="fin-company-meta">${badges}${website}</div>
+            </div>
+            <div class="fin-key-metrics">
+                <div class="fin-metric"><span class="fin-metric-label">Price</span><span class="fin-metric-value">${price}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">Market Cap</span><span class="fin-metric-value">${fmtCap}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">EV</span><span class="fin-metric-value">${fmtEV}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">52W High</span><span class="fin-metric-value">${hi52}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">52W Low</span><span class="fin-metric-value">${lo52}</span></div>
+            </div>
+        </div>
+        ${c.description ? `<div class="fin-description" onclick="this.classList.toggle('expanded')">${c.description}</div>` : ""}
+    `;
+}
+
+async function loadFinancials(symbol, name) {
+    document.getElementById("finEmpty").style.display = "none";
+    document.getElementById("finContent").style.display = "none";
+    document.getElementById("finLoading").style.display = "flex";
+
+    // Close dropdown
+    document.getElementById("finDropdownPanel").classList.remove("open");
+    document.getElementById("finSearch").value = name || symbol;
+    document.getElementById("finSearchResults").innerHTML = "";
+
+    try {
+        const data = await api(`/api/stock/${encodeURIComponent(symbol)}/financials`);
+        const cur = data.company.currency || "USD";
+
+        document.getElementById("finCompanyHeader").innerHTML = renderFinCompany(data.company);
+        document.getElementById("finRatios").innerHTML = renderFinRatios(data.ratios);
+        document.getElementById("finTableIncome").innerHTML   = renderFinTable(data.income_statement, data.years, cur);
+        document.getElementById("finTableBalance").innerHTML  = renderFinTable(data.balance_sheet, data.years, cur);
+        document.getElementById("finTableCashflow").innerHTML = renderFinTable(data.cash_flow, data.years, cur);
+
+        document.getElementById("finLoading").style.display = "none";
+        document.getElementById("finContent").style.display = "block";
+
+        // Scroll to section
+        document.getElementById("financials").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+        document.getElementById("finLoading").style.display = "none";
+        document.getElementById("finEmpty").style.display = "block";
+        showToast(t("toast_error"), "error");
+    }
+}
+
+function initFinSearch() {
+    const input = document.getElementById("finSearch");
+    const dropdown = document.getElementById("finDropdownPanel");
+    const results = document.getElementById("finSearchResults");
+    let timeout = null;
+
+    input.addEventListener("input", () => {
+        clearTimeout(timeout);
+        const q = input.value.trim();
+        if (q.length < 2) { dropdown.classList.remove("open"); return; }
+        timeout = setTimeout(async () => {
+            try {
+                const res = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
+                if (!res.length) {
+                    results.innerHTML = `<div class="search-result-item no-results">${t("empty_subtitle")}</div>`;
+                } else {
+                    results.innerHTML = res.map(r => `
+                        <div class="search-result-item" onclick="loadFinancials('${r.symbol}', '${r.name.replace(/'/g, "\\'")}')">
+                            <span class="result-symbol">${r.symbol}</span>
+                            <span class="result-name">${r.name}</span>
+                            <span class="result-meta">${r.exchange || ""} • ${r.type || ""} • ${r.currency || ""}</span>
+                        </div>`).join("");
+                }
+                dropdown.classList.add("open");
+            } catch (e) {
+                results.innerHTML = `<div class="search-result-item error">${t("toast_error")}</div>`;
+                dropdown.classList.add("open");
+            }
+        }, 300);
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#finSearchDropdown")) dropdown.classList.remove("open");
+    });
+}
+
+// Financial statement tab switching
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".fin-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".fin-tab").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            const tab = btn.dataset.tab;
+            document.getElementById("finTableIncome").style.display   = tab === "income"   ? "" : "none";
+            document.getElementById("finTableBalance").style.display  = tab === "balance"  ? "" : "none";
+            document.getElementById("finTableCashflow").style.display = tab === "cashflow" ? "" : "none";
+        });
+    });
+});
+
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     applyLanguage();
     initSearch();
+    initFinSearch();
     loadStocks();
     loadMovers();
     loadSettings();

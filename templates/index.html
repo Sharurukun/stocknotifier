@@ -15,6 +15,7 @@
                 <a href="/#movers" data-i18n="nav_movers">Top Movers</a>
                 <a href="/#settings" data-i18n="nav_settings">Settings</a>
                 <a href="/#history" data-i18n="nav_history">History</a>
+                <a href="/#financials" data-i18n="nav_financials">Financials</a>
             </nav>
         </div>
         <div class="header-right">
@@ -163,6 +164,57 @@
             </div>
             <div class="section-content">
                 <div id="historyList" class="history-list"></div>
+            </div>
+        </section>
+
+        <section class="section" id="financials">
+            <div class="section-header">
+                <h2 data-i18n="nav_financials">Financials</h2>
+                <p data-i18n="financials_subtitle">Financial statements, ratios & company overview</p>
+            </div>
+            <div class="section-content">
+                <!-- Stock selector -->
+                <div class="fin-search-bar">
+                    <div class="search-dropdown" id="finSearchDropdown">
+                        <div class="search-container">
+                            <input type="text" id="finSearch" data-i18n-placeholder="search_placeholder" placeholder="Search a stock...">
+                        </div>
+                        <div id="finDropdownPanel" class="dropdown-panel">
+                            <div id="finSearchResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div id="finEmpty" class="fin-empty">
+                    <p data-i18n="financials_empty">Search for a company to view its financials</p>
+                </div>
+
+                <!-- Main content -->
+                <div id="finContent" style="display:none">
+                    <!-- Company header -->
+                    <div class="fin-company-header" id="finCompanyHeader"></div>
+
+                    <!-- Ratios -->
+                    <div class="fin-ratios" id="finRatios"></div>
+
+                    <!-- Financial Statements tabs -->
+                    <div class="fin-statements">
+                        <div class="fin-tabs">
+                            <button class="fin-tab active" data-tab="income" data-i18n="fin_income">Income Statement</button>
+                            <button class="fin-tab" data-tab="balance" data-i18n="fin_balance">Balance Sheet</button>
+                            <button class="fin-tab" data-tab="cashflow" data-i18n="fin_cashflow">Cash Flow</button>
+                        </div>
+                        <div id="finTableIncome" class="fin-table-wrap"></div>
+                        <div id="finTableBalance" class="fin-table-wrap" style="display:none"></div>
+                        <div id="finTableCashflow" class="fin-table-wrap" style="display:none"></div>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="finLoading" class="fin-loading" style="display:none">
+                    <div class="fin-spinner"></div>
+                </div>
             </div>
         </section>
 

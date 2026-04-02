@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
+import math
 import yfinance as yf
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -625,3 +626,177 @@ async def api_get_movers():
         "daily": daily_movers,
         "weekly": weekly_movers,
     }
+
+
+def _safe_float(val):
+    """Convert a value to float, returning None if invalid/NaN."""
+    try:
+        f = float(val)
+        return None if math.isnan(f) or math.isinf(f) else f
+    except (TypeError, ValueError):
+        return None
+
+
+def _df_to_dict(df, metrics_map):
+    """Convert a yfinance DataFrame to {display_name: {year: value}}."""
+    result = {}
+    if df is None or df.empty:
+        return result
+    for display_name, yf_keys in metrics_map.items():
+        keys = yf_keys if isinstance(yf_keys, list) else [yf_keys]
+        for key in keys:
+            if key in df.index:
+                row = df.loc[key]
+                result[display_name] = {
+                    str(col.year): _safe_float(val)
+                    for col, val in row.items()
+                }
+                break
+    return result
+
+
+@app.get("/api/stock/{symbol}/financials")
+async def api_stock_financials(symbol: str):
+    """Return financial statements, ratios, and company overview for a symbol."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info or {}
+
+        # Company overview
+        company = {
+            "name": info.get("longName") or info.get("shortName", symbol),
+            "symbol": symbol.upper(),
+            "exchange": info.get("fullExchangeName") or info.get("exchange", ""),
+            "sector": info.get("sector", ""),
+            "industry": info.get("industry", ""),
+            "description": info.get("longBusinessSummary", ""),
+            "employees": info.get("fullTimeEmployees"),
+            "website": info.get("website", ""),
+            "country": info.get("country", ""),
+            "city": info.get("city", ""),
+            "currency": info.get("currency", "USD"),
+            "market_cap": _safe_float(info.get("marketCap")),
+            "enterprise_value": _safe_float(info.get("enterpriseValue")),
+            "current_price": _safe_float(info.get("currentPrice") or info.get("regularMarketPrice")),
+            "week52_high": _safe_float(info.get("fiftyTwoWeekHigh")),
+            "week52_low": _safe_float(info.get("fiftyTwoWeekLow")),
+        }
+
+        # --- Financial Statements ---
+        # Try newer yfinance attr names, fall back to older ones
+        income_df = getattr(ticker, "income_stmt", None) or getattr(ticker, "financials", None)
+        balance_df = getattr(ticker, "balance_sheet", None)
+        cashflow_df = getattr(ticker, "cash_flow", None) or getattr(ticker, "cashflow", None)
+
+        income_metrics = {
+            "Total Revenue":           ["Total Revenue"],
+            "Cost of Revenue":         ["Cost Of Revenue"],
+            "Gross Profit":            ["Gross Profit"],
+            "R&D Expenses":            ["Research And Development"],
+            "SG&A Expenses":           ["Selling General And Administration", "Selling General Administrative"],
+            "Operating Income (EBIT)": ["Operating Income", "Ebit"],
+            "EBITDA":                  ["EBITDA", "Normalized EBITDA"],
+            "Interest Expense":        ["Interest Expense", "Net Interest Income"],
+            "Pre-tax Income":          ["Pretax Income"],
+            "Income Tax":              ["Tax Provision", "Income Tax Expense"],
+            "Net Income":              ["Net Income"],
+            "Basic EPS":               ["Basic EPS"],
+            "Diluted EPS":             ["Diluted EPS"],
+            "Shares Outstanding":      ["Diluted Average Shares", "Basic Average Shares"],
+        }
+
+        balance_metrics = {
+            "Cash & Equivalents":       ["Cash And Cash Equivalents"],
+            "Short-term Investments":   ["Other Short Term Investments", "Available For Sale Securities"],
+            "Total Current Assets":     ["Current Assets"],
+            "PP&E (Net)":               ["Net PPE"],
+            "Goodwill":                 ["Goodwill"],
+            "Intangible Assets":        ["Other Intangible Assets", "Goodwill And Other Intangible Assets"],
+            "Total Assets":             ["Total Assets"],
+            "Short-term Debt":          ["Current Debt", "Current Debt And Capital Lease Obligation"],
+            "Total Current Liabilities":["Current Liabilities"],
+            "Long-term Debt":           ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
+            "Total Liabilities":        ["Total Liabilities Net Minority Interest"],
+            "Shareholders' Equity":     ["Stockholders Equity", "Common Stock Equity"],
+            "Total Debt":               ["Total Debt"],
+        }
+
+        cashflow_metrics = {
+            "Operating Cash Flow":  ["Operating Cash Flow"],
+            "Capital Expenditures": ["Capital Expenditure"],
+            "Free Cash Flow":       ["Free Cash Flow"],
+            "Acquisitions":         ["Acquisitions And Other Investing Activities", "Purchase Of Business"],
+            "Investing Cash Flow":  ["Investing Cash Flow"],
+            "Dividends Paid":       ["Common Stock Dividend Paid", "Payment Of Dividends"],
+            "Share Buybacks":       ["Repurchase Of Capital Stock", "Common Stock Repurchase"],
+            "Financing Cash Flow":  ["Financing Cash Flow"],
+            "Net Change in Cash":   ["Changes In Cash", "End Cash Position"],
+        }
+
+        income_data = _df_to_dict(income_df, income_metrics)
+        balance_data = _df_to_dict(balance_df, balance_metrics)
+        cashflow_data = _df_to_dict(cashflow_df, cashflow_metrics)
+
+        # Years available (most recent first)
+        years = []
+        for df in [income_df, balance_df, cashflow_df]:
+            if df is not None and not df.empty:
+                years = sorted([str(c.year) for c in df.columns], reverse=True)
+                break
+
+        # --- Ratios ---
+        def pct(v):
+            f = _safe_float(v)
+            return round(f * 100, 2) if f is not None else None
+
+        ratios = {
+            "Valuation": {
+                "Market Cap": _safe_float(info.get("marketCap")),
+                "Enterprise Value": _safe_float(info.get("enterpriseValue")),
+                "P/E (TTM)": _safe_float(info.get("trailingPE")),
+                "Forward P/E": _safe_float(info.get("forwardPE")),
+                "PEG Ratio": _safe_float(info.get("pegRatio")),
+                "EV/EBITDA": _safe_float(info.get("enterpriseToEbitda")),
+                "EV/Revenue": _safe_float(info.get("enterpriseToRevenue")),
+                "P/B": _safe_float(info.get("priceToBook")),
+                "P/S (TTM)": _safe_float(info.get("priceToSalesTrailing12Months")),
+            },
+            "Profitability": {
+                "Gross Margin": pct(info.get("grossMargins")),
+                "EBITDA Margin": pct(info.get("ebitdaMargins")),
+                "Operating Margin": pct(info.get("operatingMargins")),
+                "Net Margin": pct(info.get("profitMargins")),
+                "ROE": pct(info.get("returnOnEquity")),
+                "ROA": pct(info.get("returnOnAssets")),
+            },
+            "Leverage": {
+                "Total Debt/Equity": _safe_float(info.get("debtToEquity")),
+                "Current Ratio": _safe_float(info.get("currentRatio")),
+                "Quick Ratio": _safe_float(info.get("quickRatio")),
+            },
+            "Per Share": {
+                "EPS (TTM)": _safe_float(info.get("trailingEps")),
+                "Forward EPS": _safe_float(info.get("forwardEps")),
+                "Book Value/Share": _safe_float(info.get("bookValue")),
+                "Dividend/Share": _safe_float(info.get("dividendRate")),
+                "Dividend Yield": pct(info.get("dividendYield")),
+                "Payout Ratio": pct(info.get("payoutRatio")),
+            },
+            "Growth (YoY)": {
+                "Revenue Growth": pct(info.get("revenueGrowth")),
+                "Earnings Growth": pct(info.get("earningsGrowth")),
+                "EPS Growth (TTM)": pct(info.get("earningsQuarterlyGrowth")),
+            },
+        }
+
+        return {
+            "company": company,
+            "years": years,
+            "income_statement": income_data,
+            "balance_sheet": balance_data,
+            "cash_flow": cashflow_data,
+            "ratios": ratios,
+        }
+    except Exception as e:
+        logger.error(f"Financials error for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
