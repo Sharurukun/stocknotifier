@@ -4,231 +4,251 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockNotifier</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">SN</div>
+                <div class="brand-name">StockNotifier</div>
             </div>
-            <div class="brand-name">StockNotifier</div>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="#dashboard" class="nav-item active" data-target="dashboard">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                <span data-i18n="nav_dashboard">Tableau de bord</span>
-            </a>
-            <a href="#movers" class="nav-item" data-target="movers">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                <span data-i18n="nav_movers">Top Movers</span>
-            </a>
-            <a href="#alerts" class="nav-item" data-target="alerts">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span data-i18n="nav_alerts">Alertes</span>
-            </a>
-            <a href="#financials" class="nav-item" data-target="financials">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                <span data-i18n="nav_financials">Financiers</span>
-            </a>
-            <a href="#settings" class="nav-item" data-target="settings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                <span data-i18n="nav_settings">Paramètres</span>
-            </a>
-            <a href="#history" class="nav-item" data-target="history">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                <span data-i18n="nav_history">Historique</span>
-            </a>
-        </nav>
-        <div class="sidebar-footer">
-            <button id="langToggle" class="lang-toggle">
-                <span class="lang-flag">🇬🇧</span>
-                <span class="lang-label">EN</span>
-            </button>
-        </div>
-    </aside>
+            
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-target="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                    <span data-i18n="nav_dashboard">Tableau de bord</span>
+                </a>
+                <a href="#movers" class="nav-item" data-target="movers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    <span data-i18n="nav_movers">Top Movers</span>
+                </a>
+                <a href="#alerts" class="nav-item" data-target="alerts">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span data-i18n="nav_alerts">Alertes</span>
+                </a>
+                <a href="#financials" class="nav-item" data-target="financials">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span data-i18n="nav_financials">Financiers</span>
+                </a>
+                <a href="#history" class="nav-item" data-target="history">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span data-i18n="nav_history">Historique</span>
+                </a>
+                <a href="#settings" class="nav-item" data-target="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span data-i18n="nav_settings">Paramètres</span>
+                </a>
+            </nav>
 
-    <main class="main-content">
-        <div class="page active" id="page-dashboard">
-            <div class="page-header">
-                <div>
-                    <h1 data-i18n="dashboard_title">Tableau de bord</h1>
-                    <p class="page-subtitle" data-i18n="dashboard_subtitle">Vos actions suivies en un coup d'œil</p>
+            <div class="sidebar-footer">
+                <button id="langToggle" class="lang-btn">
+                    <span class="lang-flag">🇬🇧</span> <span class="lang-label">EN</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="stockSearch" class="search-input" placeholder="Rechercher une action, indice, crypto..." data-i18n-placeholder="search_placeholder">
+                    <div id="dropdownPanel" class="search-dropdown"><div id="searchResults"></div></div>
                 </div>
-                <div class="header-actions">
-                    <div class="search-dropdown">
-                        <div class="search-container">
-                            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <input type="text" id="stockSearch" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="Rechercher...">
+            </header>
+
+            <div class="pages-wrapper">
+                <div id="page-dashboard" class="page active">
+                    <div class="page-heading">
+                        <h1 data-i18n="dashboard_title">Tableau de bord</h1>
+                        <p data-i18n="dashboard_subtitle">Vos actions suivies en un coup d'œil</p>
+                    </div>
+                    <div id="stocksGrid" class="cards-grid"></div>
+                    <div id="emptyState" class="empty-state" style="display:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <h3 data-i18n="empty_title">Aucune action suivie</h3>
+                        <p data-i18n="empty_subtitle">Recherchez une action en haut pour commencer</p>
+                    </div>
+                </div>
+
+                <div id="page-movers" class="page">
+                    <div class="page-heading">
+                        <h1 data-i18n="movers_title">Top Movers</h1>
+                    </div>
+                    <div class="movers-grid">
+                        <div class="glass-panel">
+                            <h2 data-i18n="movers_daily">Movers du jour</h2>
+                            <div id="dailyMovers"></div>
                         </div>
-                        <div id="dropdownPanel" class="dropdown-panel"><div id="searchResults"></div></div>
-                    </div>
-                </div>
-            </div>
-            <div id="stocksGrid" class="stocks-grid"></div>
-            <div id="emptyState" class="empty-state" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                <h3 data-i18n="empty_title">Aucune action suivie</h3>
-                <p data-i18n="empty_subtitle">Recherchez une action en haut à droite pour commencer</p>
-            </div>
-        </div>
-
-        <div class="page" id="page-movers">
-            <div class="page-header">
-                <div>
-                    <h1 data-i18n="movers_title">Top Movers</h1>
-                    <p class="page-subtitle" data-i18n="movers_subtitle">Les plus gros mouvements parmi vos actions</p>
-                </div>
-            </div>
-            <div class="movers-container">
-                <div id="dailyMovers" class="movers-section"></div>
-                <div id="weeklyMovers" class="movers-section"></div>
-            </div>
-        </div>
-
-        <div class="page" id="page-alerts">
-            <div class="page-header">
-                <div>
-                    <h1 data-i18n="nav_alerts">Alertes</h1>
-                    <p class="page-subtitle" data-i18n="alerts_subtitle">Créez et gérez vos notifications personnalisées</p>
-                </div>
-                <button class="btn btn-primary" onclick="openAlertModal()">+ Nouvelle Alerte</button>
-            </div>
-            <div id="alertsList" class="alerts-list"></div>
-        </div>
-
-        <div class="page" id="page-financials">
-            <div class="page-header">
-                <div>
-                    <h1 data-i18n="nav_financials">Financiers</h1>
-                    <p class="page-subtitle" data-i18n="financials_subtitle">États financiers, ratios & présentation de l'entreprise</p>
-                </div>
-                <div class="header-actions">
-                    <div class="search-dropdown" id="finSearchDropdown">
-                        <div class="search-container">
-                            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <input type="text" id="finSearch" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="Rechercher une entreprise...">
-                        </div>
-                        <div id="finDropdownPanel" class="dropdown-panel"><div id="finSearchResults"></div></div>
-                    </div>
-                </div>
-            </div>
-            <div id="finEmpty" class="empty-state"><p data-i18n="financials_empty">Recherchez une entreprise pour voir ses financiers</p></div>
-            <div id="finLoading" class="fin-loading" style="display:none"><div class="fin-spinner"></div></div>
-            <div id="finContent" style="display:none">
-                <div class="fin-company-header" id="finCompanyHeader"></div>
-                <div class="fin-ratios" id="finRatios"></div>
-                <div class="fin-statements">
-                    <div class="fin-tabs">
-                        <button class="fin-tab active" data-tab="income" data-i18n="fin_income">Compte de résultat</button>
-                        <button class="fin-tab" data-tab="balance" data-i18n="fin_balance">Bilan</button>
-                        <button class="fin-tab" data-tab="cashflow" data-i18n="fin_cashflow">Flux de trésorerie</button>
-                    </div>
-                    <div id="finTableIncome" class="fin-table-wrap"></div>
-                    <div id="finTableBalance" class="fin-table-wrap" style="display:none"></div>
-                    <div id="finTableCashflow" class="fin-table-wrap" style="display:none"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="page" id="page-settings">
-            <div class="page-header">
-                <div>
-                    <h1 data-i18n="settings_title">Paramètres</h1>
-                    <p class="page-subtitle" data-i18n="settings_subtitle">Configurer les notifications & intégrations</p>
-                </div>
-                <button type="submit" form="settingsForm" class="btn btn-primary" id="saveSettingsBtn" data-i18n="btn_save">Enregistrer</button>
-            </div>
-            <form id="settingsForm" class="settings-grid">
-                <div class="settings-card">
-                    <div class="settings-card-header"><h2>Pushover</h2></div>
-                    <div class="settings-card-body">
-                        <div class="form-group">
-                            <label data-i18n="label_user_key">Clé Utilisateur</label>
-                            <input type="text" class="form-input" id="pushover_user_key" placeholder="User Key">
-                        </div>
-                        <div class="form-group">
-                            <label data-i18n="label_api_token">Jeton API</label>
-                            <input type="password" class="form-input" id="pushover_api_token" placeholder="API Token">
-                        </div>
-                        <button type="button" class="btn btn-secondary" id="testNotifBtn" data-i18n="btn_test">Tester la notification</button>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <h2>Résumé Quotidien</h2>
-                        <label class="toggle"><input type="checkbox" id="daily_enabled"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="settings-card-body">
-                        <div class="form-group">
-                            <label data-i18n="label_send_at">Envoyer à</label>
-                            <input type="time" class="form-input" id="daily_time">
-                        </div>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="form-checkbox" id="daily_monthly_change">
-                            <span data-i18n="label_include_monthly">Inclure la variation mensuelle</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <h2>Résumé Hebdomadaire</h2>
-                        <label class="toggle"><input type="checkbox" id="weekly_enabled"><span class="toggle-slider"></span></label>
-                    </div>
-                    <div class="settings-card-body">
-                        <div class="form-group">
-                            <label data-i18n="label_day">Jour</label>
-                            <select class="form-input" id="weekly_day">
-                                <option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option>
-                                <option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label data-i18n="label_send_at">Envoyer à</label>
-                            <input type="time" class="form-input" id="weekly_time">
+                        <div class="glass-panel">
+                            <h2 data-i18n="movers_weekly">Movers de la semaine</h2>
+                            <div id="weeklyMovers"></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <h2>Top Movers & Alertes Globales</h2>
-                    </div>
-                    <div class="settings-card-body">
-                        <div class="form-group">
-                            <label class="checkbox-label"><input type="checkbox" class="form-checkbox" id="alert_enabled"> Activer les alertes de prix de base</label>
-                            <input type="number" class="form-input" id="alert_threshold" step="0.1" placeholder="Seuil (%)">
+                <div id="page-alerts" class="page">
+                    <div class="page-heading flex-between">
+                        <div>
+                            <h1 data-i18n="nav_alerts">Alertes</h1>
+                            <p data-i18n="alerts_subtitle">Gérez vos notifications</p>
                         </div>
-                        <div class="form-group" style="margin-top: 10px;">
-                            <label class="checkbox-label"><input type="checkbox" class="form-checkbox" id="movers_enabled"> Digest Top Movers</label>
-                            <div style="display:flex; gap:10px; margin-top:6px;">
-                                <input type="number" class="form-input" id="movers_count" placeholder="Nb actions" style="width: 100px;">
-                                <input type="time" class="form-input" id="movers_time">
+                        <button class="btn btn-primary" onclick="openAlertModal()">+ Nouvelle Alerte</button>
+                    </div>
+                    <div id="alertsList" class="alerts-layout"></div>
+                </div>
+
+                <div id="page-financials" class="page">
+                    <div class="page-heading">
+                        <h1 data-i18n="nav_financials">Financiers</h1>
+                    </div>
+                    <div class="search-container mb-4" id="finSearchDropdown">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="finSearch" class="search-input" placeholder="Rechercher une entreprise...">
+                        <div id="finDropdownPanel" class="search-dropdown"><div id="finSearchResults"></div></div>
+                    </div>
+                    <div id="finEmpty" class="empty-state"><p data-i18n="financials_empty">Recherchez une entreprise</p></div>
+                    <div id="finLoading" class="loader-container" style="display:none"><div class="spinner"></div></div>
+                    <div id="finContent" style="display:none">
+                        <div id="finCompanyHeader" class="glass-panel mb-4"></div>
+                        <div id="finRatios" class="ratios-grid mb-4"></div>
+                        <div class="fin-statements glass-panel">
+                            <div class="fin-tabs">
+                                <button class="fin-tab active" data-tab="income" data-i18n="fin_income">Compte de résultat</button>
+                                <button class="fin-tab" data-tab="balance" data-i18n="fin_balance">Bilan</button>
+                                <button class="fin-tab" data-tab="cashflow" data-i18n="fin_cashflow">Flux de trésorerie</button>
+                            </div>
+                            <div id="finTableIncome" class="fin-table-wrap"></div>
+                            <div id="finTableBalance" class="fin-table-wrap" style="display:none"></div>
+                            <div id="finTableCashflow" class="fin-table-wrap" style="display:none"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="page-history" class="page">
+                    <div class="page-heading">
+                        <h1 data-i18n="history_title">Historique</h1>
+                    </div>
+                    <div id="historyList" class="glass-panel p-0"></div>
+                </div>
+
+                <div id="page-settings" class="page">
+                    <div class="page-heading flex-between">
+                        <div>
+                            <h1 data-i18n="settings_title">Paramètres</h1>
+                            <p data-i18n="settings_subtitle">Configuration du système</p>
+                        </div>
+                        <button class="btn btn-primary" id="saveSettingsBtn" data-i18n="btn_save">Enregistrer</button>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="glass-panel">
+                            <h2>Pushover</h2>
+                            <div class="form-group">
+                                <label data-i18n="label_user_key">User Key</label>
+                                <input type="text" class="input-modern" id="pushover_user_key">
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="label_api_token">API Token</label>
+                                <input type="password" class="input-modern" id="pushover_api_token">
+                            </div>
+                            <button id="testNotifBtn" class="btn btn-secondary mt-2" data-i18n="btn_test">Tester</button>
+                        </div>
+                        <div class="glass-panel">
+                            <h2>Résumé Quotidien</h2>
+                            <div class="form-group">
+                                <label class="switch-label">
+                                    <span>Activer</span>
+                                    <label class="switch"><input type="checkbox" id="daily_enabled"><span class="slider"></span></label>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="label_send_at">Heure</label>
+                                <input type="time" class="input-modern" id="daily_time">
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="daily_monthly_change">
+                                    <span data-i18n="label_include_monthly">Inclure la variation mensuelle</span>
+                                </label>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-secondary" id="testMoversBtn" data-i18n="btn_test_movers" style="margin-top:10px;">Tester Movers</button>
+                        <div class="glass-panel">
+                            <h2>Résumé Hebdomadaire</h2>
+                            <div class="form-group">
+                                <label class="switch-label">
+                                    <span>Activer</span>
+                                    <label class="switch"><input type="checkbox" id="weekly_enabled"><span class="slider"></span></label>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="label_day">Jour</label>
+                                <select class="input-modern" id="weekly_day">
+                                    <option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option>
+                                    <option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="label_send_at">Heure</label>
+                                <input type="time" class="input-modern" id="weekly_time">
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </form>
-        </div>
+            </div>
+        </main>
+    </div>
 
-        <div class="page" id="page-history">
-            <div class="page-header">
+    <div id="toastContainer" class="toast-wrapper"></div>
+    
+    <div id="chartModal" class="modal-backdrop">
+        <div class="modal-box chart-box">
+            <div class="modal-header">
                 <div>
-                    <h1 data-i18n="history_title">Historique</h1>
-                    <p class="page-subtitle" data-i18n="history_subtitle">Notifications récentes envoyées</p>
+                    <h2 id="chartModalTitle">Nom</h2>
+                    <p id="chartModalSymbol" class="text-muted">SYM</p>
+                </div>
+                <button class="btn-close" onclick="closeChart()">✕</button>
+            </div>
+            <div class="chart-controls mt-3">
+                <button class="btn-pill chart-period" data-period="5d">5J</button>
+                <button class="btn-pill chart-period active" data-period="1mo">1M</button>
+                <button class="btn-pill chart-period" data-period="3mo">3M</button>
+                <button class="btn-pill chart-period" data-period="1y">1A</button>
+            </div>
+            <div class="chart-area mt-3"><canvas id="stockChart"></canvas></div>
+            <div id="chartStats" class="chart-stats mt-4"></div>
+        </div>
+    </div>
+
+    <div id="alertModal" class="modal-backdrop">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="alertModalTitle" data-i18n="alerts_new">Nouvelle Alerte</h2>
+                <button class="btn-close" onclick="closeAlertModal()">✕</button>
+            </div>
+            <div class="modal-body mt-4">
+                <div id="alertStep1">
+                    <p class="mb-3 text-muted" data-i18n="alerts_choose_type">Choisissez le type de notification</p>
+                    <div class="alert-type-grid">
+                        <button class="alert-type-btn" onclick="selectAlertType('price_alert')">💰 Alerte Prix</button>
+                        <button class="alert-type-btn" onclick="selectAlertType('pct_alert')">📈 Variation %</button>
+                        <button class="alert-type-btn" onclick="selectAlertType('vol_spike')">📊 Pic Volume</button>
+                        <button class="alert-type-btn" onclick="selectAlertType('rsi_alert')">🎯 RSI</button>
+                        <button class="alert-type-btn" onclick="selectAlertType('week52')">🏆 52W Haut/Bas</button>
+                        <button class="alert-type-btn" onclick="selectAlertType('digest')">📅 Digest</button>
+                    </div>
+                </div>
+                <div id="alertStep2" style="display:none;">
+                    <button class="btn btn-secondary mb-4" onclick="backToTypeSelect()" data-i18n="alerts_back">← Retour</button>
+                    <div id="alertFormContainer"></div>
+                    <div class="mt-4 flex-end">
+                        <button class="btn btn-primary" onclick="saveAlert()" data-i18n="btn_save">Enregistrer</button>
+                    </div>
                 </div>
             </div>
-            <div id="historyList" class="history-list"></div>
         </div>
-    </main>
-
-    <div id="toastContainer" class="toast-container"></div>
-    <div id="alertModal" class="modal-overlay">... (Insérer le code modal alertes existant) ...</div>
-    <div id="chartModal" class="modal-overlay">... (Insérer le code modal charts existant) ...</div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/js/app.js"></script>
