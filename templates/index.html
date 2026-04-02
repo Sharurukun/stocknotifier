@@ -15,6 +15,7 @@
                 <a href="/#movers" data-i18n="nav_movers">Top Movers</a>
                 <a href="/#settings" data-i18n="nav_settings">Settings</a>
                 <a href="/#history" data-i18n="nav_history">History</a>
+                <a href="/#alerts" data-i18n="nav_alerts">Alerts</a>
                 <a href="/#financials" data-i18n="nav_financials">Financials</a>
             </nav>
         </div>
@@ -166,6 +167,77 @@
                 <div id="historyList" class="history-list"></div>
             </div>
         </section>
+
+        <!-- ====== ALERTS ====== -->
+        <section class="section" id="alerts">
+            <div class="section-header">
+                <h2 data-i18n="nav_alerts">Alerts</h2>
+                <p data-i18n="alerts_subtitle">Create and manage your custom notifications</p>
+            </div>
+            <div class="section-content">
+                <div class="alerts-toolbar">
+                    <button class="btn-primary" onclick="openAlertModal()" data-i18n="alerts_new">+ New Alert</button>
+                </div>
+                <div id="alertsList" class="alerts-list"></div>
+            </div>
+        </section>
+
+        <!-- ====== ALERT MODAL ====== -->
+        <div id="alertModal" class="modal">
+            <div class="modal-content modal-alert">
+                <div class="modal-header">
+                    <h3 id="alertModalTitle" data-i18n="alerts_new">New Alert</h3>
+                    <button class="btn-close" onclick="closeAlertModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Step 1: choose type -->
+                    <div id="alertStep1">
+                        <p class="alert-step-label" data-i18n="alerts_choose_type">Choose notification type</p>
+                        <div class="alert-type-grid">
+                            <div class="alert-type-card" onclick="selectAlertType('price_alert')">
+                                <span class="alert-type-icon">💰</span>
+                                <span class="alert-type-name" data-i18n="atype_price">Price Alert</span>
+                                <span class="alert-type-desc" data-i18n="atype_price_desc">When a stock crosses a price level</span>
+                            </div>
+                            <div class="alert-type-card" onclick="selectAlertType('pct_alert')">
+                                <span class="alert-type-icon">📈</span>
+                                <span class="alert-type-name" data-i18n="atype_pct">% Change</span>
+                                <span class="alert-type-desc" data-i18n="atype_pct_desc">When daily/weekly/monthly move exceeds a threshold</span>
+                            </div>
+                            <div class="alert-type-card" onclick="selectAlertType('vol_spike')">
+                                <span class="alert-type-icon">📊</span>
+                                <span class="alert-type-name" data-i18n="atype_vol">Volume Spike</span>
+                                <span class="alert-type-desc" data-i18n="atype_vol_desc">When volume is X times above average</span>
+                            </div>
+                            <div class="alert-type-card" onclick="selectAlertType('rsi_alert')">
+                                <span class="alert-type-icon">🎯</span>
+                                <span class="alert-type-name" data-i18n="atype_rsi">RSI Alert</span>
+                                <span class="alert-type-desc" data-i18n="atype_rsi_desc">Overbought / Oversold signal</span>
+                            </div>
+                            <div class="alert-type-card" onclick="selectAlertType('week52')">
+                                <span class="alert-type-icon">🏆</span>
+                                <span class="alert-type-name" data-i18n="atype_52w">52-Week High/Low</span>
+                                <span class="alert-type-desc" data-i18n="atype_52w_desc">When a stock is near its 52-week extreme</span>
+                            </div>
+                            <div class="alert-type-card" onclick="selectAlertType('digest')">
+                                <span class="alert-type-icon">📅</span>
+                                <span class="alert-type-name" data-i18n="atype_digest">Scheduled Digest</span>
+                                <span class="alert-type-desc" data-i18n="atype_digest_desc">Custom digest for selected stocks at a chosen time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: form (injected by JS) -->
+                    <div id="alertStep2" style="display:none">
+                        <button class="btn-back" onclick="backToTypeSelect()">← <span data-i18n="alerts_back">Back</span></button>
+                        <div id="alertFormContainer"></div>
+                        <div class="alert-form-actions">
+                            <button class="btn-primary" onclick="saveAlert()" id="alertSaveBtn" data-i18n="btn_save">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <section class="section" id="financials">
             <div class="section-header">

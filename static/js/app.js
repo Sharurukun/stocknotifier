@@ -42,6 +42,27 @@ const translations = {
         alert_hint: "Get notified when a stock moves more than this percentage in a day.",
         day_mon: "Monday", day_tue: "Tuesday", day_wed: "Wednesday",
         day_thu: "Thursday", day_fri: "Friday", day_sat: "Saturday", day_sun: "Sunday",
+        nav_alerts: "Alerts",
+        alerts_subtitle: "Create and manage your custom notifications",
+        alerts_new: "+ New Alert",
+        alerts_choose_type: "Choose notification type",
+        alerts_back: "Back",
+        alerts_empty: "No alerts configured. Click + New Alert to get started.",
+        alerts_enabled: "Enabled",
+        alerts_last: "Last triggered:",
+        alerts_never: "Never triggered",
+        atype_price: "Price Alert",
+        atype_price_desc: "When a stock crosses a price level",
+        atype_pct: "% Change",
+        atype_pct_desc: "When daily/weekly/monthly move exceeds a threshold",
+        atype_vol: "Volume Spike",
+        atype_vol_desc: "When volume is X times above average",
+        atype_rsi: "RSI Alert",
+        atype_rsi_desc: "Overbought / Oversold signal",
+        atype_52w: "52W High/Low",
+        atype_52w_desc: "When a stock is near its 52-week extreme",
+        atype_digest: "Scheduled Digest",
+        atype_digest_desc: "Custom digest for selected stocks at a chosen time",
         nav_financials: "Financials",
         financials_subtitle: "Financial statements, ratios & company overview",
         financials_empty: "Search for a company to view its financials",
@@ -108,6 +129,27 @@ const translations = {
         alert_hint: "Recevez une notification quand une action bouge de plus de ce pourcentage en un jour.",
         day_mon: "Lundi", day_tue: "Mardi", day_wed: "Mercredi",
         day_thu: "Jeudi", day_fri: "Vendredi", day_sat: "Samedi", day_sun: "Dimanche",
+        nav_alerts: "Alertes",
+        alerts_subtitle: "Créez et gérez vos notifications personnalisées",
+        alerts_new: "+ Nouvelle alerte",
+        alerts_choose_type: "Choisissez le type de notification",
+        alerts_back: "Retour",
+        alerts_empty: "Aucune alerte configurée. Cliquez sur + Nouvelle alerte pour commencer.",
+        alerts_enabled: "Activée",
+        alerts_last: "Dernier déclenchement :",
+        alerts_never: "Jamais déclenchée",
+        atype_price: "Alerte de prix",
+        atype_price_desc: "Quand un titre dépasse ou tombe sous un niveau de prix",
+        atype_pct: "Variation %",
+        atype_pct_desc: "Quand la variation jour/semaine/mois dépasse un seuil",
+        atype_vol: "Pic de volume",
+        atype_vol_desc: "Quand le volume est X fois supérieur à la moyenne",
+        atype_rsi: "Alerte RSI",
+        atype_rsi_desc: "Signal de surachat / survente",
+        atype_52w: "Haut/Bas 52S",
+        atype_52w_desc: "Quand un titre approche son extrême sur 52 semaines",
+        atype_digest: "Digest planifié",
+        atype_digest_desc: "Digest personnalisé pour des titres choisis à une heure donnée",
         nav_financials: "Financiers",
         financials_subtitle: "États financiers, ratios & présentation de l'entreprise",
         financials_empty: "Recherchez une entreprise pour voir ses financiers",
@@ -728,6 +770,435 @@ function renderPopular() {
     `;
 }
 
+// --- Alerts ---
+
+const ALERT_ICONS = {
+    price_alert: "💰",
+    pct_alert:   "📈",
+    vol_spike:   "📊",
+    rsi_alert:   "🎯",
+    week52:      "🏆",
+    digest:      "📅",
+};
+
+const ALERT_TYPE_LABELS = {
+    price_alert: () => t("atype_price"),
+    pct_alert:   () => t("atype_pct"),
+    vol_spike:   () => t("atype_vol"),
+    rsi_alert:   () => t("atype_rsi"),
+    week52:      () => t("atype_52w"),
+    digest:      () => t("atype_digest"),
+};
+
+function alertDescription(type, cfg) {
+    const sym = cfg.symbol ? `<b>${cfg.symbol}</b>` : "";
+    switch (type) {
+        case "price_alert":
+            return `${sym} ${cfg.condition === "above" ? "≥" : "≤"} <b>${cfg.price}</b>`;
+        case "pct_alert": {
+            const pmap = { daily: t("daily_change"), weekly: t("weekly_change"), monthly: t("monthly_change") };
+            return `${sym} — ${pmap[cfg.period] || cfg.period} ±${cfg.threshold}%`;
+        }
+        case "vol_spike":
+            return `${sym} — volume ≥ ${cfg.multiplier}× average`;
+        case "rsi_alert":
+            return `${sym} — RSI(${cfg.rsi_period || 14}) ${cfg.condition === "above" ? "≥" : "≤"} ${cfg.level}`;
+        case "week52": {
+            const d = { high: "52W High", low: "52W Low", both: "52W High or Low" };
+            return `${sym} — ${d[cfg.direction] || cfg.direction}`;
+        }
+        case "digest": {
+            const smap = { daily: "Every day", weekdays: "Mon–Fri", weekly: "Weekly" };
+            const stocks = (cfg.symbols || []).join(", ") || "—";
+            return `${smap[cfg.schedule] || "Daily"} at ${cfg.time || "—"} · ${stocks}`;
+        }
+        default: return "";
+    }
+}
+
+async function loadAlerts() {
+    const list = document.getElementById("alertsList");
+    if (!list) return;
+    try {
+        const alerts = await api("/api/notifications");
+        if (!alerts.length) {
+            list.innerHTML = `<div class="alerts-empty">${t("alerts_empty")}</div>`;
+            return;
+        }
+        list.innerHTML = alerts.map(a => {
+            const icon = ALERT_ICONS[a.type] || "🔔";
+            const typeLabel = (ALERT_TYPE_LABELS[a.type] || (() => a.type))();
+            const desc = alertDescription(a.type, a.config);
+            const lastTrig = a.last_triggered
+                ? `${t("alerts_last")} ${new Date(a.last_triggered + "Z").toLocaleString()}`
+                : t("alerts_never");
+            return `
+            <div class="alert-card${a.enabled ? "" : " disabled"}" id="alert-card-${a.id}">
+                <div class="alert-card-icon">${icon}</div>
+                <div class="alert-card-body">
+                    <div class="alert-card-name">${a.name}</div>
+                    <div class="alert-card-desc">${desc}</div>
+                    <div class="alert-card-meta">
+                        <span class="alert-badge type-${a.type}">${typeLabel}</span>
+                        <span class="alert-last-triggered">${lastTrig}</span>
+                    </div>
+                </div>
+                <div class="alert-card-actions">
+                    <label class="toggle-switch" title="${t("alerts_enabled")}">
+                        <input type="checkbox" ${a.enabled ? "checked" : ""} onchange="toggleAlert(${a.id}, this.checked)">
+                        <span class="toggle-track"></span>
+                        <span class="toggle-thumb"></span>
+                    </label>
+                    <button class="btn-icon" onclick="openAlertModal(${a.id})" title="Edit">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                    <button class="btn-icon" onclick="testAlert(${a.id})" title="Test now">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                    </button>
+                    <button class="btn-icon danger" onclick="deleteAlert(${a.id})" title="Delete">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>`;
+        }).join("");
+    } catch (e) {
+        list.innerHTML = `<div class="alerts-empty">${t("toast_error")}</div>`;
+    }
+}
+
+async function toggleAlert(id, enabled) {
+    try {
+        await api(`/api/notifications/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }) });
+        document.getElementById(`alert-card-${id}`)?.classList.toggle("disabled", !enabled);
+    } catch (e) { showToast(t("toast_error"), "error"); }
+}
+
+async function deleteAlert(id) {
+    if (!confirm(currentLang === "fr" ? "Supprimer cette alerte ?" : "Delete this alert?")) return;
+    try {
+        await api(`/api/notifications/${id}`, { method: "DELETE" });
+        showToast(currentLang === "fr" ? "Alerte supprimée" : "Alert deleted", "success");
+        loadAlerts();
+    } catch (e) { showToast(t("toast_error"), "error"); }
+}
+
+async function testAlert(id) {
+    try {
+        await api(`/api/notifications/${id}/test`, { method: "POST" });
+        showToast(t("toast_test_ok"), "success");
+    } catch (e) { showToast(t("toast_test_fail"), "error"); }
+}
+
+// ---- Alert Modal ----
+let _alertEditId = null;
+let _alertEditType = null;
+let _digestSymbols = [];  // for digest stock picker
+let _digestSearchTimeout = null;
+
+function openAlertModal(editId = null) {
+    _alertEditId = editId;
+    _alertEditType = null;
+    _digestSymbols = [];
+    const modal = document.getElementById("alertModal");
+    const title = document.getElementById("alertModalTitle");
+    title.textContent = editId ? (currentLang === "fr" ? "Modifier l'alerte" : "Edit Alert") : t("alerts_new");
+    document.getElementById("alertStep1").style.display = "";
+    document.getElementById("alertStep2").style.display = "none";
+    modal.classList.add("active");
+
+    // If editing, skip type step and show form directly
+    if (editId) {
+        api(`/api/notifications`).then(alerts => {
+            const a = alerts.find(x => x.id === editId);
+            if (a) {
+                _alertEditType = a.type;
+                _digestSymbols = a.config.symbols || [];
+                document.getElementById("alertStep1").style.display = "none";
+                document.getElementById("alertStep2").style.display = "";
+                document.getElementById("alertFormContainer").innerHTML = buildAlertForm(a.type, a.config, a.name);
+                if (a.type === "digest") initDigestPicker();
+            }
+        });
+    }
+}
+
+function closeAlertModal() {
+    document.getElementById("alertModal").classList.remove("active");
+    _alertEditId = null;
+    _alertEditType = null;
+    _digestSymbols = [];
+}
+
+function backToTypeSelect() {
+    _alertEditType = null;
+    document.getElementById("alertStep1").style.display = "";
+    document.getElementById("alertStep2").style.display = "none";
+}
+
+function selectAlertType(type) {
+    _alertEditType = type;
+    document.getElementById("alertStep1").style.display = "none";
+    document.getElementById("alertStep2").style.display = "";
+    document.getElementById("alertFormContainer").innerHTML = buildAlertForm(type, {}, "");
+    if (type === "digest") initDigestPicker();
+}
+
+function buildAlertForm(type, cfg, name) {
+    const nameField = `
+        <div class="alert-form-group">
+            <label>${currentLang === "fr" ? "Nom de l'alerte" : "Alert name"}</label>
+            <input type="text" id="af_name" value="${name || ""}" placeholder="${currentLang === "fr" ? "Ex: AAPL sous 150$" : "E.g. AAPL below $150"}">
+        </div>`;
+
+    const stockField = (label) => `
+        <div class="alert-form-group">
+            <label>${label || (currentLang === "fr" ? "Titre (symbole)" : "Stock (symbol)")}</label>
+            <input type="text" id="af_symbol" value="${cfg.symbol || ""}" placeholder="AAPL, AIR.PA, BTC-USD...">
+        </div>`;
+
+    switch (type) {
+        case "price_alert":
+            return `<div class="alert-form">${nameField}${stockField()}
+                <div class="alert-form-row">
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Condition" : "Condition"}</label>
+                        <select id="af_condition">
+                            <option value="above" ${cfg.condition === "above" ? "selected" : ""}>${currentLang === "fr" ? "Au-dessus de" : "Above"}</option>
+                            <option value="below" ${cfg.condition === "below" ? "selected" : ""}>${currentLang === "fr" ? "En-dessous de" : "Below"}</option>
+                        </select>
+                    </div>
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Prix cible" : "Target price"}</label>
+                        <input type="number" id="af_price" step="0.01" value="${cfg.price || ""}" placeholder="150.00">
+                    </div>
+                </div>
+            </div>`;
+
+        case "pct_alert":
+            return `<div class="alert-form">${nameField}${stockField()}
+                <div class="alert-form-row">
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Seuil (%)" : "Threshold (%)"}</label>
+                        <input type="number" id="af_threshold" step="0.1" min="0.1" value="${cfg.threshold || 3}" placeholder="3.0">
+                    </div>
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Période" : "Period"}</label>
+                        <select id="af_period">
+                            <option value="daily"   ${cfg.period === "daily"   ? "selected" : ""}>${t("daily_change")}</option>
+                            <option value="weekly"  ${cfg.period === "weekly"  ? "selected" : ""}>${t("weekly_change")}</option>
+                            <option value="monthly" ${cfg.period === "monthly" ? "selected" : ""}>${t("monthly_change")}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>`;
+
+        case "vol_spike":
+            return `<div class="alert-form">${nameField}${stockField()}
+                <div class="alert-form-group">
+                    <label>${currentLang === "fr" ? "Multiplicateur (×)" : "Multiplier (×)"}</label>
+                    <input type="number" id="af_multiplier" step="0.5" min="1" value="${cfg.multiplier || 2}" placeholder="2">
+                </div>
+            </div>`;
+
+        case "rsi_alert":
+            return `<div class="alert-form">${nameField}${stockField()}
+                <div class="alert-form-row">
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Condition" : "Condition"}</label>
+                        <select id="af_condition">
+                            <option value="below" ${cfg.condition === "below" ? "selected" : ""}>${currentLang === "fr" ? "RSI en dessous de (survente)" : "RSI below (oversold)"}</option>
+                            <option value="above" ${cfg.condition === "above" ? "selected" : ""}>${currentLang === "fr" ? "RSI au-dessus de (surachat)" : "RSI above (overbought)"}</option>
+                        </select>
+                    </div>
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Niveau RSI" : "RSI level"}</label>
+                        <input type="number" id="af_level" min="1" max="99" value="${cfg.level || 30}" placeholder="30">
+                    </div>
+                </div>
+                <div class="alert-form-group">
+                    <label>${currentLang === "fr" ? "Période RSI" : "RSI period"}</label>
+                    <input type="number" id="af_rsi_period" min="2" max="50" value="${cfg.rsi_period || 14}" placeholder="14">
+                </div>
+            </div>`;
+
+        case "week52":
+            return `<div class="alert-form">${nameField}${stockField()}
+                <div class="alert-form-group">
+                    <label>${currentLang === "fr" ? "Déclencheur" : "Trigger"}</label>
+                    <select id="af_direction">
+                        <option value="high" ${cfg.direction === "high" ? "selected" : ""}>${currentLang === "fr" ? "Haut 52 semaines" : "52W High"}</option>
+                        <option value="low"  ${cfg.direction === "low"  ? "selected" : ""}>${currentLang === "fr" ? "Bas 52 semaines" : "52W Low"}</option>
+                        <option value="both" ${cfg.direction === "both" ? "selected" : ""}>${currentLang === "fr" ? "Haut ou Bas" : "High or Low"}</option>
+                    </select>
+                </div>
+            </div>`;
+
+        case "digest": {
+            const inc_weekly  = cfg.include_weekly  ? "checked" : "";
+            const inc_monthly = cfg.include_monthly ? "checked" : "";
+            return `<div class="alert-form">
+                <div class="alert-form-group">
+                    <label>${currentLang === "fr" ? "Titre du digest" : "Digest title"}</label>
+                    <input type="text" id="af_title" value="${cfg.title || ""}" placeholder="${currentLang === "fr" ? "Mon digest matin" : "Morning digest"}">
+                </div>
+                <div class="alert-form-group">
+                    <label>${currentLang === "fr" ? "Titres à inclure" : "Stocks to include"}</label>
+                    <div class="digest-stock-picker">
+                        <div class="digest-stock-list" id="digestTagList"></div>
+                        <div class="digest-add-row">
+                            <input type="text" id="digestStockInput" placeholder="${t("search_placeholder")}">
+                            <div id="digestStockResults" class="digest-stock-results"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert-form-row">
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Fréquence" : "Schedule"}</label>
+                        <select id="af_schedule" onchange="updateDigestDayField()">
+                            <option value="daily"    ${cfg.schedule === "daily"    ? "selected" : ""}>${currentLang === "fr" ? "Chaque jour" : "Every day"}</option>
+                            <option value="weekdays" ${cfg.schedule === "weekdays" ? "selected" : ""}>${currentLang === "fr" ? "Jours ouvrés (Lun–Ven)" : "Weekdays (Mon–Fri)"}</option>
+                            <option value="weekly"   ${cfg.schedule === "weekly"   ? "selected" : ""}>${currentLang === "fr" ? "Hebdomadaire" : "Weekly"}</option>
+                        </select>
+                    </div>
+                    <div class="alert-form-group" id="af_dow_group" style="display:none">
+                        <label>${t("label_day")}</label>
+                        <select id="af_dow">
+                            ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d, i) => `<option value="${i}" ${(cfg.day_of_week == i) ? "selected" : ""}>${d}</option>`).join("")}
+                        </select>
+                    </div>
+                    <div class="alert-form-group">
+                        <label>${currentLang === "fr" ? "Heure d'envoi" : "Send at"}</label>
+                        <input type="time" id="af_time" value="${cfg.time || "08:00"}">
+                    </div>
+                </div>
+                <div class="alert-form-row">
+                    <div class="alert-form-group" style="flex-direction:row;align-items:center;gap:10px">
+                        <input type="checkbox" id="af_inc_weekly" ${inc_weekly} style="width:auto">
+                        <label style="text-transform:none;letter-spacing:0;font-weight:500;font-size:0.82rem">${currentLang === "fr" ? "Inclure variation semaine" : "Include weekly change"}</label>
+                    </div>
+                    <div class="alert-form-group" style="flex-direction:row;align-items:center;gap:10px">
+                        <input type="checkbox" id="af_inc_monthly" ${inc_monthly} style="width:auto">
+                        <label style="text-transform:none;letter-spacing:0;font-weight:500;font-size:0.82rem">${currentLang === "fr" ? "Inclure variation mensuelle" : "Include monthly change"}</label>
+                    </div>
+                </div>
+            </div>`;
+        }
+        default: return "";
+    }
+}
+
+function updateDigestDayField() {
+    const sched = document.getElementById("af_schedule")?.value;
+    const dow = document.getElementById("af_dow_group");
+    if (dow) dow.style.display = sched === "weekly" ? "" : "none";
+}
+
+function initDigestPicker() {
+    _renderDigestTags();
+    updateDigestDayField();
+    const input = document.getElementById("digestStockInput");
+    const results = document.getElementById("digestStockResults");
+    if (!input) return;
+    input.addEventListener("input", () => {
+        clearTimeout(_digestSearchTimeout);
+        const q = input.value.trim();
+        if (q.length < 2) { results.classList.remove("open"); return; }
+        _digestSearchTimeout = setTimeout(async () => {
+            const res = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`).catch(() => []);
+            if (!res.length) { results.classList.remove("open"); return; }
+            results.innerHTML = res.map(r => `
+                <div class="search-result-item" onclick="_addDigestSymbol('${r.symbol}')">
+                    <span class="result-symbol">${r.symbol}</span>
+                    <span class="result-name">${r.name}</span>
+                </div>`).join("");
+            results.classList.add("open");
+        }, 300);
+    });
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".digest-add-row")) results.classList.remove("open");
+    });
+}
+
+function _renderDigestTags() {
+    const list = document.getElementById("digestTagList");
+    if (!list) return;
+    list.innerHTML = _digestSymbols.map(sym => `
+        <span class="digest-stock-tag">${sym}
+            <button onclick="_removeDigestSymbol('${sym}')" type="button">×</button>
+        </span>`).join("");
+}
+
+function _addDigestSymbol(sym) {
+    if (!_digestSymbols.includes(sym)) {
+        _digestSymbols.push(sym);
+        _renderDigestTags();
+    }
+    const input = document.getElementById("digestStockInput");
+    const results = document.getElementById("digestStockResults");
+    if (input) input.value = "";
+    if (results) results.classList.remove("open");
+}
+
+function _removeDigestSymbol(sym) {
+    _digestSymbols = _digestSymbols.filter(s => s !== sym);
+    _renderDigestTags();
+}
+
+function _collectAlertConfig(type) {
+    const g = (id) => document.getElementById(id);
+    const v = (id) => g(id)?.value?.trim();
+    switch (type) {
+        case "price_alert":
+            return { symbol: v("af_symbol")?.toUpperCase(), condition: v("af_condition"), price: parseFloat(v("af_price")) };
+        case "pct_alert":
+            return { symbol: v("af_symbol")?.toUpperCase(), threshold: parseFloat(v("af_threshold")), period: v("af_period") };
+        case "vol_spike":
+            return { symbol: v("af_symbol")?.toUpperCase(), multiplier: parseFloat(v("af_multiplier")) };
+        case "rsi_alert":
+            return { symbol: v("af_symbol")?.toUpperCase(), condition: v("af_condition"), level: parseFloat(v("af_level")), rsi_period: parseInt(v("af_rsi_period")) };
+        case "week52":
+            return { symbol: v("af_symbol")?.toUpperCase(), direction: v("af_direction") };
+        case "digest":
+            return {
+                title: v("af_title"),
+                symbols: [..._digestSymbols],
+                schedule: v("af_schedule"),
+                day_of_week: parseInt(v("af_dow") || "0"),
+                time: v("af_time") || "08:00",
+                include_weekly:  g("af_inc_weekly")?.checked  || false,
+                include_monthly: g("af_inc_monthly")?.checked || false,
+            };
+        default: return {};
+    }
+}
+
+async function saveAlert() {
+    const name = document.getElementById("af_name")?.value?.trim();
+    if (!name) { showToast(currentLang === "fr" ? "Nom requis" : "Name required", "error"); return; }
+    const config = _collectAlertConfig(_alertEditType);
+    const body = { name, type: _alertEditType, config };
+    try {
+        if (_alertEditId) {
+            await api(`/api/notifications/${_alertEditId}`, { method: "PATCH", body: JSON.stringify({ name, config }) });
+        } else {
+            await api("/api/notifications", { method: "POST", body: JSON.stringify(body) });
+        }
+        showToast(_alertEditId ? (currentLang === "fr" ? "Alerte mise à jour" : "Alert updated") : (currentLang === "fr" ? "Alerte créée" : "Alert created"), "success");
+        closeAlertModal();
+        loadAlerts();
+    } catch (e) {
+        showToast(t("toast_error"), "error");
+    }
+}
+
 // --- Financials ---
 
 function formatFinNum(val, currency) {
@@ -967,6 +1438,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initSearch();
     initFinSearch();
     loadStocks();
+    loadAlerts();
     loadMovers();
     loadSettings();
     renderPopular();
