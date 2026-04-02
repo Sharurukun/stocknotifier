@@ -227,6 +227,14 @@ async function api(url, options = {}) {
 // --- Render Stocks ---
 let cachedStocks = [];
 
+// --- localStorage helpers ---
+function getCardOrder() { return JSON.parse(localStorage.getItem("sn_card_order") || "[]"); }
+function saveCardOrder(order) { localStorage.setItem("sn_card_order", JSON.stringify(order)); }
+function getCardSizes() { return JSON.parse(localStorage.getItem("sn_card_sizes") || "{}"); }
+function saveCardSize(symbol, wide) { const s = getCardSizes(); s[symbol] = wide; localStorage.setItem("sn_card_sizes", JSON.stringify(s)); }
+function getStoredPeriods() { return JSON.parse(localStorage.getItem("sn_periods") || "{}"); }
+function saveStoredPeriod(symbol, period) { const p = getStoredPeriods(); p[symbol] = period; localStorage.setItem("sn_periods", JSON.stringify(p)); }
+
 async function loadStocks() {
     const grid = document.getElementById("stocksGrid");
     const empty = document.getElementById("emptyState");
@@ -242,6 +250,20 @@ async function loadStocks() {
             return;
         }
         empty.style.display = "none";
+
+        // Apply saved card order
+        const savedOrder = getCardOrder();
+        if (savedOrder.length) {
+            stocks.sort((a, b) => {
+                const ai = savedOrder.indexOf(a.symbol);
+                const bi = savedOrder.indexOf(b.symbol);
+                if (ai === -1 && bi === -1) return 0;
+                if (ai === -1) return 1;
+                if (bi === -1) return -1;
+                return ai - bi;
+            });
+        }
+
         grid.innerHTML = stocks
             .map((s) => {
                 const positive = s.change_pct >= 0;
@@ -249,14 +271,35 @@ async function loadStocks() {
                 const wPct = s.weekly_change_pct || 0;
                 const mPct = s.monthly_change_pct || 0;
                 return `
-                <div class="stock-card" data-symbol="${s.symbol}" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
+                <div class="stock-card" data-symbol="${s.symbol}" draggable="true" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
                     <div class="stock-card-header">
-                        <span class="stock-symbol">${s.symbol}</span>
-                        <button class="stock-remove" onclick="event.stopPropagation(); removeStock('${s.symbol}')" title="Remove">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
+                        <div class="stock-card-header-left">
+                            <span class="stock-drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none">
+                                    <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                                    <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                    <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+                                </svg>
+                            </span>
+                            <span class="stock-symbol">${s.symbol}</span>
+                        </div>
+                        <div class="stock-card-actions">
+                            <button class="stock-expand" onclick="event.stopPropagation(); toggleCardSize('${s.symbol}')" title="Expand">
+                                <svg class="icon-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                                    <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                                </svg>
+                                <svg class="icon-compress" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                                    <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+                                </svg>
+                            </button>
+                            <button class="stock-remove" onclick="event.stopPropagation(); removeStock('${s.symbol}')" title="Remove">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="stock-name">${s.name}</div>
                     <div class="stock-price-row">
@@ -277,10 +320,83 @@ async function loadStocks() {
                 </div>`;
             })
             .join("");
+
+        // Apply saved wide sizes
+        const sizes = getCardSizes();
+        for (const [sym, wide] of Object.entries(sizes)) {
+            if (wide) {
+                const card = grid.querySelector(`.stock-card[data-symbol="${sym}"]`);
+                if (card) {
+                    card.classList.add("stock-card--wide");
+                    card.querySelector(".icon-expand").style.display = "none";
+                    card.querySelector(".icon-compress").style.display = "";
+                }
+            }
+        }
+
+        setupDragAndDrop();
     } catch (e) {
         grid.innerHTML = "";
         showToast(t("toast_error"), "error");
     }
+}
+
+function toggleCardSize(symbol) {
+    const card = document.querySelector(`.stock-card[data-symbol="${symbol}"]`);
+    if (!card) return;
+    const isWide = card.classList.toggle("stock-card--wide");
+    card.querySelector(".icon-expand").style.display = isWide ? "none" : "";
+    card.querySelector(".icon-compress").style.display = isWide ? "" : "none";
+    saveCardSize(symbol, isWide);
+}
+
+let dragSrc = null;
+
+function setupDragAndDrop() {
+    const grid = document.getElementById("stocksGrid");
+    const cards = grid.querySelectorAll(".stock-card[data-symbol]");
+
+    cards.forEach((card) => {
+        card.addEventListener("dragstart", (e) => {
+            dragSrc = card;
+            e.dataTransfer.effectAllowed = "move";
+            setTimeout(() => card.classList.add("dragging"), 0);
+        });
+
+        card.addEventListener("dragend", () => {
+            card.classList.remove("dragging");
+            grid.querySelectorAll(".stock-card").forEach((c) => c.classList.remove("drag-over"));
+            const order = [...grid.querySelectorAll(".stock-card[data-symbol]")].map((c) => c.dataset.symbol);
+            saveCardOrder(order);
+        });
+
+        card.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (card !== dragSrc) {
+                grid.querySelectorAll(".stock-card").forEach((c) => c.classList.remove("drag-over"));
+                card.classList.add("drag-over");
+            }
+        });
+
+        card.addEventListener("dragleave", (e) => {
+            if (!card.contains(e.relatedTarget)) card.classList.remove("drag-over");
+        });
+
+        card.addEventListener("drop", (e) => {
+            e.preventDefault();
+            card.classList.remove("drag-over");
+            if (!dragSrc || dragSrc === card) return;
+            const cards = [...grid.querySelectorAll(".stock-card[data-symbol]")];
+            const srcIdx = cards.indexOf(dragSrc);
+            const dstIdx = cards.indexOf(card);
+            if (srcIdx < dstIdx) {
+                grid.insertBefore(dragSrc, card.nextSibling);
+            } else {
+                grid.insertBefore(dragSrc, card);
+            }
+        });
+    });
 }
 
 async function removeStock(symbol) {
@@ -328,11 +444,12 @@ async function openChart(symbol, name) {
     document.getElementById("chartModalSymbol").textContent = symbol;
     modal.classList.add("active");
 
-    // Reset period buttons
+    const period = getStoredPeriods()[symbol] || "1mo";
     document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
-    document.querySelector('.chart-period[data-period="1mo"]').classList.add("active");
+    const activeBtn = document.querySelector(`.chart-period[data-period="${period}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
 
-    await loadChartData(symbol, "1mo");
+    await loadChartData(symbol, period);
 }
 
 async function loadChartData(symbol, period) {
@@ -699,6 +816,8 @@ document.querySelectorAll(".chart-period").forEach((btn) => {
         document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const symbol = document.getElementById("chartModalSymbol").textContent;
-        loadChartData(symbol, btn.dataset.period);
+        const period = btn.dataset.period;
+        saveStoredPeriod(symbol, period);
+        loadChartData(symbol, period);
     });
 });
