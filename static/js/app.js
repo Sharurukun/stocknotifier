@@ -42,6 +42,12 @@ const translations = {
         alert_hint: "Get notified when a stock moves more than this percentage in a day.",
         day_mon: "Monday", day_tue: "Tuesday", day_wed: "Wednesday",
         day_thu: "Thursday", day_fri: "Friday", day_sat: "Saturday", day_sun: "Sunday",
+        nav_financials: "Financials",
+        financials_subtitle: "Financial statements, ratios & company overview",
+        financials_empty: "Search for a company to view its financials",
+        fin_income: "Income Statement",
+        fin_balance: "Balance Sheet",
+        fin_cashflow: "Cash Flow",
         toast_saved: "Settings saved",
         toast_added: "Stock added",
         toast_removed: "Stock removed",
@@ -102,6 +108,12 @@ const translations = {
         alert_hint: "Recevez une notification quand une action bouge de plus de ce pourcentage en un jour.",
         day_mon: "Lundi", day_tue: "Mardi", day_wed: "Mercredi",
         day_thu: "Jeudi", day_fri: "Vendredi", day_sat: "Samedi", day_sun: "Dimanche",
+        nav_financials: "Financiers",
+        financials_subtitle: "États financiers, ratios & présentation de l'entreprise",
+        financials_empty: "Recherchez une entreprise pour voir ses financiers",
+        fin_income: "Compte de résultat",
+        fin_balance: "Bilan",
+        fin_cashflow: "Flux de trésorerie",
         toast_saved: "Paramètres enregistrés",
         toast_added: "Action ajoutée",
         toast_removed: "Action supprimée",
@@ -227,6 +239,14 @@ async function api(url, options = {}) {
 // --- Render Stocks ---
 let cachedStocks = [];
 
+// --- localStorage helpers ---
+function getCardOrder() { return JSON.parse(localStorage.getItem("sn_card_order") || "[]"); }
+function saveCardOrder(order) { localStorage.setItem("sn_card_order", JSON.stringify(order)); }
+function getCardSizes() { return JSON.parse(localStorage.getItem("sn_card_sizes") || "{}"); }
+function saveCardSize(symbol, wide) { const s = getCardSizes(); s[symbol] = wide; localStorage.setItem("sn_card_sizes", JSON.stringify(s)); }
+function getStoredPeriods() { return JSON.parse(localStorage.getItem("sn_periods") || "{}"); }
+function saveStoredPeriod(symbol, period) { const p = getStoredPeriods(); p[symbol] = period; localStorage.setItem("sn_periods", JSON.stringify(p)); }
+
 async function loadStocks() {
     const grid = document.getElementById("stocksGrid");
     const empty = document.getElementById("emptyState");
@@ -242,6 +262,20 @@ async function loadStocks() {
             return;
         }
         empty.style.display = "none";
+
+        // Apply saved card order
+        const savedOrder = getCardOrder();
+        if (savedOrder.length) {
+            stocks.sort((a, b) => {
+                const ai = savedOrder.indexOf(a.symbol);
+                const bi = savedOrder.indexOf(b.symbol);
+                if (ai === -1 && bi === -1) return 0;
+                if (ai === -1) return 1;
+                if (bi === -1) return -1;
+                return ai - bi;
+            });
+        }
+
         grid.innerHTML = stocks
             .map((s) => {
                 const positive = s.change_pct >= 0;
@@ -249,14 +283,35 @@ async function loadStocks() {
                 const wPct = s.weekly_change_pct || 0;
                 const mPct = s.monthly_change_pct || 0;
                 return `
-                <div class="stock-card" data-symbol="${s.symbol}" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
+                <div class="stock-card" data-symbol="${s.symbol}" draggable="true" onclick="openChart('${s.symbol}', '${s.name.replace(/'/g, "\\'")}')">
                     <div class="stock-card-header">
-                        <span class="stock-symbol">${s.symbol}</span>
-                        <button class="stock-remove" onclick="event.stopPropagation(); removeStock('${s.symbol}')" title="Remove">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
+                        <div class="stock-card-header-left">
+                            <span class="stock-drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none">
+                                    <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                                    <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                    <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+                                </svg>
+                            </span>
+                            <span class="stock-symbol">${s.symbol}</span>
+                        </div>
+                        <div class="stock-card-actions">
+                            <button class="stock-expand" onclick="event.stopPropagation(); toggleCardSize('${s.symbol}')" title="Expand">
+                                <svg class="icon-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                                    <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                                </svg>
+                                <svg class="icon-compress" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+                                    <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
+                                </svg>
+                            </button>
+                            <button class="stock-remove" onclick="event.stopPropagation(); removeStock('${s.symbol}')" title="Remove">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="stock-name">${s.name}</div>
                     <div class="stock-price-row">
@@ -277,10 +332,83 @@ async function loadStocks() {
                 </div>`;
             })
             .join("");
+
+        // Apply saved wide sizes
+        const sizes = getCardSizes();
+        for (const [sym, wide] of Object.entries(sizes)) {
+            if (wide) {
+                const card = grid.querySelector(`.stock-card[data-symbol="${sym}"]`);
+                if (card) {
+                    card.classList.add("stock-card--wide");
+                    card.querySelector(".icon-expand").style.display = "none";
+                    card.querySelector(".icon-compress").style.display = "";
+                }
+            }
+        }
+
+        setupDragAndDrop();
     } catch (e) {
         grid.innerHTML = "";
         showToast(t("toast_error"), "error");
     }
+}
+
+function toggleCardSize(symbol) {
+    const card = document.querySelector(`.stock-card[data-symbol="${symbol}"]`);
+    if (!card) return;
+    const isWide = card.classList.toggle("stock-card--wide");
+    card.querySelector(".icon-expand").style.display = isWide ? "none" : "";
+    card.querySelector(".icon-compress").style.display = isWide ? "" : "none";
+    saveCardSize(symbol, isWide);
+}
+
+let dragSrc = null;
+
+function setupDragAndDrop() {
+    const grid = document.getElementById("stocksGrid");
+    const cards = grid.querySelectorAll(".stock-card[data-symbol]");
+
+    cards.forEach((card) => {
+        card.addEventListener("dragstart", (e) => {
+            dragSrc = card;
+            e.dataTransfer.effectAllowed = "move";
+            setTimeout(() => card.classList.add("dragging"), 0);
+        });
+
+        card.addEventListener("dragend", () => {
+            card.classList.remove("dragging");
+            grid.querySelectorAll(".stock-card").forEach((c) => c.classList.remove("drag-over"));
+            const order = [...grid.querySelectorAll(".stock-card[data-symbol]")].map((c) => c.dataset.symbol);
+            saveCardOrder(order);
+        });
+
+        card.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (card !== dragSrc) {
+                grid.querySelectorAll(".stock-card").forEach((c) => c.classList.remove("drag-over"));
+                card.classList.add("drag-over");
+            }
+        });
+
+        card.addEventListener("dragleave", (e) => {
+            if (!card.contains(e.relatedTarget)) card.classList.remove("drag-over");
+        });
+
+        card.addEventListener("drop", (e) => {
+            e.preventDefault();
+            card.classList.remove("drag-over");
+            if (!dragSrc || dragSrc === card) return;
+            const cards = [...grid.querySelectorAll(".stock-card[data-symbol]")];
+            const srcIdx = cards.indexOf(dragSrc);
+            const dstIdx = cards.indexOf(card);
+            if (srcIdx < dstIdx) {
+                grid.insertBefore(dragSrc, card.nextSibling);
+            } else {
+                grid.insertBefore(dragSrc, card);
+            }
+        });
+    });
 }
 
 async function removeStock(symbol) {
@@ -328,11 +456,12 @@ async function openChart(symbol, name) {
     document.getElementById("chartModalSymbol").textContent = symbol;
     modal.classList.add("active");
 
-    // Reset period buttons
+    const period = getStoredPeriods()[symbol] || "1mo";
     document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
-    document.querySelector('.chart-period[data-period="1mo"]').classList.add("active");
+    const activeBtn = document.querySelector(`.chart-period[data-period="${period}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
 
-    await loadChartData(symbol, "1mo");
+    await loadChartData(symbol, period);
 }
 
 async function loadChartData(symbol, period) {
@@ -599,10 +728,244 @@ function renderPopular() {
     `;
 }
 
+// --- Financials ---
+
+function formatFinNum(val, currency) {
+    if (val === null || val === undefined) return "—";
+    const abs = Math.abs(val);
+    const sign = val < 0 ? "-" : "";
+    const sym = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+    if (abs >= 1e12) return `${sign}${sym}${(abs / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9)  return `${sign}${sym}${(abs / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6)  return `${sign}${sym}${(abs / 1e6).toFixed(2)}M`;
+    if (abs >= 1e3)  return `${sign}${sym}${(abs / 1e3).toFixed(1)}K`;
+    return `${sign}${sym}${abs.toFixed(2)}`;
+}
+
+function formatRatioVal(val, key) {
+    if (val === null || val === undefined) return { text: "—", cls: "na" };
+    // Large market-cap / EV values
+    if (["Market Cap", "Enterprise Value"].includes(key)) {
+        const abs = Math.abs(val);
+        let text;
+        if (abs >= 1e12) text = `$${(abs / 1e12).toFixed(2)}T`;
+        else if (abs >= 1e9) text = `$${(abs / 1e9).toFixed(2)}B`;
+        else text = `$${(abs / 1e6).toFixed(0)}M`;
+        return { text, cls: "" };
+    }
+    // Percentages
+    if (["Gross Margin","EBITDA Margin","Operating Margin","Net Margin","ROE","ROA",
+         "Dividend Yield","Payout Ratio","Revenue Growth","Earnings Growth","EPS Growth (TTM)"].includes(key)) {
+        const cls = val >= 0 ? "positive" : "negative";
+        return { text: `${val >= 0 ? "+" : ""}${val.toFixed(1)}%`, cls };
+    }
+    // Multiples
+    if (["P/E (TTM)","Forward P/E","PEG Ratio","EV/EBITDA","EV/Revenue","P/B","P/S (TTM)"].includes(key)) {
+        return { text: `${val.toFixed(1)}x`, cls: "" };
+    }
+    return { text: val.toFixed(2), cls: "" };
+}
+
+function calcYoYGrowth(data, year, prevYear) {
+    const curr = data[year], prev = data[prevYear];
+    if (curr == null || prev == null || prev === 0) return null;
+    return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+// Rows that should be visually highlighted (totals/subtotals)
+const HIGHLIGHT_ROWS = new Set([
+    "Total Revenue", "Gross Profit", "Operating Income (EBIT)", "EBITDA", "Net Income",
+    "Total Assets", "Total Liabilities", "Shareholders' Equity",
+    "Operating Cash Flow", "Free Cash Flow",
+]);
+
+// Rows where a separator line should appear above
+const SEPARATOR_ROWS = new Set([
+    "Operating Income (EBIT)", "EBITDA", "Pre-tax Income", "Net Income",
+    "Total Assets", "Short-term Debt", "Total Liabilities", "Shareholders' Equity",
+    "Operating Cash Flow", "Free Cash Flow", "Financing Cash Flow",
+]);
+
+function renderFinTable(stmtData, years, currency) {
+    if (!stmtData || !Object.keys(stmtData).length) {
+        return `<div class="fin-empty">No data available</div>`;
+    }
+    const cols = years.slice(0, 4); // max 4 years
+    let html = `<table class="fin-table"><thead><tr>
+        <th>Metric</th>
+        ${cols.map(y => `<th>${y}</th>`).join("")}
+    </tr></thead><tbody>`;
+
+    for (const [metric, values] of Object.entries(stmtData)) {
+        const highlight = HIGHLIGHT_ROWS.has(metric) ? " fin-row-highlight" : "";
+        const separator = SEPARATOR_ROWS.has(metric) ? " fin-row-separator" : "";
+        html += `<tr class="${highlight}${separator}">`;
+        html += `<td>${metric}</td>`;
+        cols.forEach((yr, i) => {
+            const val = values?.[yr];
+            const formatted = formatFinNum(val, currency);
+            let cls = "";
+            // Color negative values like Net Income, Free Cash Flow
+            if (val !== null && val !== undefined && ["Net Income","Free Cash Flow","Operating Cash Flow"].includes(metric)) {
+                cls = val >= 0 ? "positive" : "negative";
+            }
+            // Show YoY growth on Revenue and Net Income
+            let growth = "";
+            if (["Total Revenue","Net Income","EBITDA","Operating Cash Flow"].includes(metric) && i < cols.length - 1) {
+                const g = calcYoYGrowth(values, yr, cols[i + 1]);
+                if (g !== null) {
+                    const gc = g >= 0 ? "positive" : "negative";
+                    growth = `<br><span class="growth ${gc}">${g >= 0 ? "▲" : "▼"} ${Math.abs(g).toFixed(1)}%</span>`;
+                }
+            }
+            html += `<td class="${cls}">${formatted}${growth}</td>`;
+        });
+        html += `</tr>`;
+    }
+    html += `</tbody></table>`;
+    return html;
+}
+
+function renderFinRatios(ratios) {
+    return Object.entries(ratios).map(([group, items]) => {
+        const rows = Object.entries(items).map(([key, val]) => {
+            const { text, cls } = formatRatioVal(val, key);
+            return `<div class="fin-ratio-row">
+                <span class="fin-ratio-name">${key}</span>
+                <span class="fin-ratio-val ${cls}">${text}</span>
+            </div>`;
+        }).join("");
+        return `<div class="fin-ratio-group">
+            <div class="fin-ratio-group-title">${group}</div>
+            ${rows}
+        </div>`;
+    }).join("");
+}
+
+function renderFinCompany(c) {
+    const fmtCap = c.market_cap ? formatFinNum(c.market_cap, c.currency) : "—";
+    const fmtEV  = c.enterprise_value ? formatFinNum(c.enterprise_value, c.currency) : "—";
+    const price  = c.current_price != null ? `${c.current_price.toFixed(2)} ${c.currency}` : "—";
+    const hi52   = c.week52_high != null ? c.week52_high.toFixed(2) : "—";
+    const lo52   = c.week52_low  != null ? c.week52_low.toFixed(2)  : "—";
+
+    const badges = [
+        c.exchange && `<span class="fin-badge accent">${c.exchange}</span>`,
+        c.sector   && `<span class="fin-badge">${c.sector}</span>`,
+        c.industry && `<span class="fin-badge">${c.industry}</span>`,
+        c.country  && `<span class="fin-badge">${c.country}</span>`,
+        c.employees && `<span class="fin-badge">${Number(c.employees).toLocaleString()} employees</span>`,
+    ].filter(Boolean).join("");
+
+    const website = c.website
+        ? `<a href="${c.website}" target="_blank" rel="noopener" class="fin-badge" style="text-decoration:none;color:var(--accent)">${c.website.replace(/^https?:\/\//, "")}</a>`
+        : "";
+
+    return `
+        <div class="fin-company-top">
+            <div>
+                <div class="fin-company-name">${c.name} <span style="color:var(--text-muted);font-size:0.9rem;font-weight:400">${c.symbol}</span></div>
+                <div class="fin-company-meta">${badges}${website}</div>
+            </div>
+            <div class="fin-key-metrics">
+                <div class="fin-metric"><span class="fin-metric-label">Price</span><span class="fin-metric-value">${price}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">Market Cap</span><span class="fin-metric-value">${fmtCap}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">EV</span><span class="fin-metric-value">${fmtEV}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">52W High</span><span class="fin-metric-value">${hi52}</span></div>
+                <div class="fin-metric"><span class="fin-metric-label">52W Low</span><span class="fin-metric-value">${lo52}</span></div>
+            </div>
+        </div>
+        ${c.description ? `<div class="fin-description" onclick="this.classList.toggle('expanded')">${c.description}</div>` : ""}
+    `;
+}
+
+async function loadFinancials(symbol, name) {
+    document.getElementById("finEmpty").style.display = "none";
+    document.getElementById("finContent").style.display = "none";
+    document.getElementById("finLoading").style.display = "flex";
+
+    // Close dropdown
+    document.getElementById("finDropdownPanel").classList.remove("open");
+    document.getElementById("finSearch").value = name || symbol;
+    document.getElementById("finSearchResults").innerHTML = "";
+
+    try {
+        const data = await api(`/api/stock/${encodeURIComponent(symbol)}/financials`);
+        const cur = data.company.currency || "USD";
+
+        document.getElementById("finCompanyHeader").innerHTML = renderFinCompany(data.company);
+        document.getElementById("finRatios").innerHTML = renderFinRatios(data.ratios);
+        document.getElementById("finTableIncome").innerHTML   = renderFinTable(data.income_statement, data.years, cur);
+        document.getElementById("finTableBalance").innerHTML  = renderFinTable(data.balance_sheet, data.years, cur);
+        document.getElementById("finTableCashflow").innerHTML = renderFinTable(data.cash_flow, data.years, cur);
+
+        document.getElementById("finLoading").style.display = "none";
+        document.getElementById("finContent").style.display = "block";
+
+        // Scroll to section
+        document.getElementById("financials").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+        document.getElementById("finLoading").style.display = "none";
+        document.getElementById("finEmpty").style.display = "block";
+        showToast(t("toast_error"), "error");
+    }
+}
+
+function initFinSearch() {
+    const input = document.getElementById("finSearch");
+    const dropdown = document.getElementById("finDropdownPanel");
+    const results = document.getElementById("finSearchResults");
+    let timeout = null;
+
+    input.addEventListener("input", () => {
+        clearTimeout(timeout);
+        const q = input.value.trim();
+        if (q.length < 2) { dropdown.classList.remove("open"); return; }
+        timeout = setTimeout(async () => {
+            try {
+                const res = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
+                if (!res.length) {
+                    results.innerHTML = `<div class="search-result-item no-results">${t("empty_subtitle")}</div>`;
+                } else {
+                    results.innerHTML = res.map(r => `
+                        <div class="search-result-item" onclick="loadFinancials('${r.symbol}', '${r.name.replace(/'/g, "\\'")}')">
+                            <span class="result-symbol">${r.symbol}</span>
+                            <span class="result-name">${r.name}</span>
+                            <span class="result-meta">${r.exchange || ""} • ${r.type || ""} • ${r.currency || ""}</span>
+                        </div>`).join("");
+                }
+                dropdown.classList.add("open");
+            } catch (e) {
+                results.innerHTML = `<div class="search-result-item error">${t("toast_error")}</div>`;
+                dropdown.classList.add("open");
+            }
+        }, 300);
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("#finSearchDropdown")) dropdown.classList.remove("open");
+    });
+}
+
+// Financial statement tab switching
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".fin-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".fin-tab").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            const tab = btn.dataset.tab;
+            document.getElementById("finTableIncome").style.display   = tab === "income"   ? "" : "none";
+            document.getElementById("finTableBalance").style.display  = tab === "balance"  ? "" : "none";
+            document.getElementById("finTableCashflow").style.display = tab === "cashflow" ? "" : "none";
+        });
+    });
+});
+
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
     applyLanguage();
     initSearch();
+    initFinSearch();
     loadStocks();
     loadMovers();
     loadSettings();
@@ -699,6 +1062,8 @@ document.querySelectorAll(".chart-period").forEach((btn) => {
         document.querySelectorAll(".chart-period").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const symbol = document.getElementById("chartModalSymbol").textContent;
-        loadChartData(symbol, btn.dataset.period);
+        const period = btn.dataset.period;
+        saveStoredPeriod(symbol, period);
+        loadChartData(symbol, period);
     });
 });

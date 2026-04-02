@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from pathlib import Path
 
+import math
 import yfinance as yf
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -199,178 +200,46 @@ def fetch_stock_data_extended(symbol: str) -> dict | None:
 
 
 def search_stocks(query: str) -> list:
-    """Search for stocks using yfinance with universal coverage."""
+    """Search for stocks using Yahoo Finance search API with universal coverage."""
     try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+        }
+        url = "https://query1.finance.yahoo.com/v1/finance/search"
+        params = {
+            "q": query,
+            "quotesCount": 10,
+            "newsCount": 0,
+            "listsCount": 0,
+            "enableFuzzyQuery": True,
+        }
+
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        quotes = data.get("finance", {}).get("result", [{}])[0].get("quotes", [])
+
         results = []
-        query_upper = query.upper().strip()
-        
-        # Handle ISIN format (starts with E or I)
-        if query_upper.startswith("E") or query_upper.startswith("I"):
-            # ISIN lookup - try common prefixes
-            isin_candidates = [
-                f"{query_upper}",
-                f"{query_upper[:8]}US",
-                f"{query_upper[:8]}GB",
-                f"{query_upper[:8]}FR",
-                f"{query_upper[:8]}DE",
-            ]
-            for isin in isin_candidates:
-                try:
-                    ticker = yf.Ticker(isin)
-                    info = ticker.info
-                    if info and info.get("shortName") and info.get("symbol"):
-                        results.append({
-                            "symbol": info.get("symbol", isin),
-                            "name": info.get("shortName", info.get("longName", isin)),
-                            "exchange": info.get("exchange", "Unknown"),
-                            "type": info.get("quoteType", "Stock"),
-                            "currency": info.get("currency", "USD"),
-                            "isin": isin,
-                        })
-                        break
-                except:
-                    continue
-            return results[:10]
-        
-        # Try direct lookup first
-        try:
-            ticker = yf.Ticker(query_upper)
-            info = ticker.info
-            
-            # Check if we got valid data
-            if info and (info.get("shortName") or info.get("longName") or info.get("symbol")):
-                results.append({
-                    "symbol": info.get("symbol", query_upper),
-                    "name": info.get("shortName", info.get("longName", query_upper)),
-                    "exchange": info.get("exchange", "Unknown"),
-                    "type": info.get("quoteType", "Stock"),
-                    "currency": info.get("currency", "USD"),
-                })
-        except Exception as e:
-            logger.debug(f"Direct lookup failed for {query}: {e}")
-        
-        # Try common ticker suffixes for European stocks
-        if not results and len(query) >= 3:
-            suffixes = [
-                (query_upper + ".PA", "Paris"),
-                (query_upper + ".L", "London"),
-                (query_upper + ".DE", "Xetra"),
-                (query_upper + ".XETRA", "Xetra"),
-                (query_upper + ".EU", "Euronext"),
-                (query_upper + ".NL", "Amsterdam"),
-                (query_upper + ".BR", "Brussels"),
-                (query_upper + ".AT", "Vienna"),
-                (query_upper + ".CH", "Swiss"),
-                (query_upper + ".JP", "Tokyo"),
-                (query_upper + ".HK", "Hong Kong"),
-                (query_upper + ".SG", "Singapore"),
-                (query_upper + ".AU", "Sydney"),
-                (query_upper + ".KR", "Korea"),
-            ]
-            
-            for suffix, exchange_name in suffixes:
-                try:
-                    ticker = yf.Ticker(suffix)
-                    info = ticker.info
-                    if info and (info.get("shortName") or info.get("longName")):
-                        results.append({
-                            "symbol": info.get("symbol", suffix),
-                            "name": info.get("shortName", info.get("longName", suffix)),
-                            "exchange": exchange_name,
-                            "type": info.get("quoteType", "Stock"),
-                            "currency": info.get("currency", "USD"),
-                        })
-                        break
-                except:
-                    continue
-        
-        # Try name-based search (common company names)
-        if not results and len(query) >= 3:
-            name_searches = {
-                "airbus": "AIR.PA",
-                "total": "TTE.PA",
-                "renault": "RNO.PA",
-                "santander": "SAN.MC",
-                "shell": "SHEL.L",
-                "bp": "BP.L",
-                "tesla": "TSLA",
-                "apple": "AAPL",
-                "microsoft": "MSFT",
-                "amazon": "AMZN",
-                "google": "GOOGL",
-                "nvidia": "NVDA",
-                "bitcoin": "BTC-USD",
-                "ethereum": "ETH-USD",
-                "sp 500": "^GSPC",
-                "dow": "^DJI",
-                "nasdaq": "^IXIC",
-                "cac 40": "^FCHI",
-                "dax": "^GDAXI",
-                "ftse": "^FTSE",
-                "nikkei": "^N225",
-            }
-            
-            query_lower = query.lower()
-            for name_key, symbol in name_searches.items():
-                if name_key in query_lower:
-                    try:
-                        ticker = yf.Ticker(symbol)
-                        info = ticker.info
-                        if info and info.get("shortName"):
-                            results.append({
-                                "symbol": info.get("symbol", symbol),
-                                "name": info.get("shortName", info.get("longName", symbol)),
-                                "exchange": info.get("exchange", "Unknown"),
-                                "type": info.get("quoteType", "Stock"),
-                                "currency": info.get("currency", "USD"),
-                            })
-                            break
-                    except:
-                        continue
-        
-        # Try crypto pairs
-        if not results and any(x in query_lower for x in ["bitcoin", "btc", "ethereum", "eth", "ripple", "xrp", "litecoin", "ltc", "doge", "solana", "sol"]):
-            crypto_pairs = {
-                "bitcoin": "BTC-USD",
-                "btc": "BTC-USD",
-                "ethereum": "ETH-USD",
-                "eth": "ETH-USD",
-                "ripple": "XRP-USD",
-                "xrp": "XRP-USD",
-                "litecoin": "LTC-USD",
-                "ltc": "LTC-USD",
-                "dogecoin": "DOGE-USD",
-                "doge": "DOGE-USD",
-                "solana": "SOL-USD",
-                "sol": "SOL-USD",
-            }
-            
-            for name_key, symbol in crypto_pairs.items():
-                if name_key in query_lower:
-                    try:
-                        ticker = yf.Ticker(symbol)
-                        info = ticker.info
-                        if info and info.get("shortName"):
-                            results.append({
-                                "symbol": info.get("symbol", symbol),
-                                "name": info.get("shortName", info.get("longName", symbol)),
-                                "exchange": "Crypto",
-                                "type": "CRYPTO",
-                                "currency": info.get("currency", "USD"),
-                            })
-                            break
-                    except:
-                        continue
-        
-        # Remove duplicates and limit results
-        seen_symbols = set()
-        unique_results = []
-        for r in results:
-            if r["symbol"] not in seen_symbols:
-                seen_symbols.add(r["symbol"])
-                unique_results.append(r)
-        
-        return unique_results[:10]
+        for q in quotes:
+            symbol = q.get("symbol", "")
+            if not symbol:
+                continue
+            name = q.get("longname") or q.get("shortname") or symbol
+            exchange = q.get("exchDisp") or q.get("exchange") or "Unknown"
+            quote_type = q.get("quoteType", "EQUITY")
+            currency = q.get("currency", "")
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "exchange": exchange,
+                "type": quote_type,
+                "currency": currency,
+            })
+
+        return results[:10]
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
@@ -757,3 +626,177 @@ async def api_get_movers():
         "daily": daily_movers,
         "weekly": weekly_movers,
     }
+
+
+def _safe_float(val):
+    """Convert a value to float, returning None if invalid/NaN."""
+    try:
+        f = float(val)
+        return None if math.isnan(f) or math.isinf(f) else f
+    except (TypeError, ValueError):
+        return None
+
+
+def _df_to_dict(df, metrics_map):
+    """Convert a yfinance DataFrame to {display_name: {year: value}}."""
+    result = {}
+    if df is None or df.empty:
+        return result
+    for display_name, yf_keys in metrics_map.items():
+        keys = yf_keys if isinstance(yf_keys, list) else [yf_keys]
+        for key in keys:
+            if key in df.index:
+                row = df.loc[key]
+                result[display_name] = {
+                    str(col.year): _safe_float(val)
+                    for col, val in row.items()
+                }
+                break
+    return result
+
+
+@app.get("/api/stock/{symbol}/financials")
+async def api_stock_financials(symbol: str):
+    """Return financial statements, ratios, and company overview for a symbol."""
+    try:
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info or {}
+
+        # Company overview
+        company = {
+            "name": info.get("longName") or info.get("shortName", symbol),
+            "symbol": symbol.upper(),
+            "exchange": info.get("fullExchangeName") or info.get("exchange", ""),
+            "sector": info.get("sector", ""),
+            "industry": info.get("industry", ""),
+            "description": info.get("longBusinessSummary", ""),
+            "employees": info.get("fullTimeEmployees"),
+            "website": info.get("website", ""),
+            "country": info.get("country", ""),
+            "city": info.get("city", ""),
+            "currency": info.get("currency", "USD"),
+            "market_cap": _safe_float(info.get("marketCap")),
+            "enterprise_value": _safe_float(info.get("enterpriseValue")),
+            "current_price": _safe_float(info.get("currentPrice") or info.get("regularMarketPrice")),
+            "week52_high": _safe_float(info.get("fiftyTwoWeekHigh")),
+            "week52_low": _safe_float(info.get("fiftyTwoWeekLow")),
+        }
+
+        # --- Financial Statements ---
+        # Try newer yfinance attr names, fall back to older ones
+        income_df = getattr(ticker, "income_stmt", None) or getattr(ticker, "financials", None)
+        balance_df = getattr(ticker, "balance_sheet", None)
+        cashflow_df = getattr(ticker, "cash_flow", None) or getattr(ticker, "cashflow", None)
+
+        income_metrics = {
+            "Total Revenue":           ["Total Revenue"],
+            "Cost of Revenue":         ["Cost Of Revenue"],
+            "Gross Profit":            ["Gross Profit"],
+            "R&D Expenses":            ["Research And Development"],
+            "SG&A Expenses":           ["Selling General And Administration", "Selling General Administrative"],
+            "Operating Income (EBIT)": ["Operating Income", "Ebit"],
+            "EBITDA":                  ["EBITDA", "Normalized EBITDA"],
+            "Interest Expense":        ["Interest Expense", "Net Interest Income"],
+            "Pre-tax Income":          ["Pretax Income"],
+            "Income Tax":              ["Tax Provision", "Income Tax Expense"],
+            "Net Income":              ["Net Income"],
+            "Basic EPS":               ["Basic EPS"],
+            "Diluted EPS":             ["Diluted EPS"],
+            "Shares Outstanding":      ["Diluted Average Shares", "Basic Average Shares"],
+        }
+
+        balance_metrics = {
+            "Cash & Equivalents":       ["Cash And Cash Equivalents"],
+            "Short-term Investments":   ["Other Short Term Investments", "Available For Sale Securities"],
+            "Total Current Assets":     ["Current Assets"],
+            "PP&E (Net)":               ["Net PPE"],
+            "Goodwill":                 ["Goodwill"],
+            "Intangible Assets":        ["Other Intangible Assets", "Goodwill And Other Intangible Assets"],
+            "Total Assets":             ["Total Assets"],
+            "Short-term Debt":          ["Current Debt", "Current Debt And Capital Lease Obligation"],
+            "Total Current Liabilities":["Current Liabilities"],
+            "Long-term Debt":           ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
+            "Total Liabilities":        ["Total Liabilities Net Minority Interest"],
+            "Shareholders' Equity":     ["Stockholders Equity", "Common Stock Equity"],
+            "Total Debt":               ["Total Debt"],
+        }
+
+        cashflow_metrics = {
+            "Operating Cash Flow":  ["Operating Cash Flow"],
+            "Capital Expenditures": ["Capital Expenditure"],
+            "Free Cash Flow":       ["Free Cash Flow"],
+            "Acquisitions":         ["Acquisitions And Other Investing Activities", "Purchase Of Business"],
+            "Investing Cash Flow":  ["Investing Cash Flow"],
+            "Dividends Paid":       ["Common Stock Dividend Paid", "Payment Of Dividends"],
+            "Share Buybacks":       ["Repurchase Of Capital Stock", "Common Stock Repurchase"],
+            "Financing Cash Flow":  ["Financing Cash Flow"],
+            "Net Change in Cash":   ["Changes In Cash", "End Cash Position"],
+        }
+
+        income_data = _df_to_dict(income_df, income_metrics)
+        balance_data = _df_to_dict(balance_df, balance_metrics)
+        cashflow_data = _df_to_dict(cashflow_df, cashflow_metrics)
+
+        # Years available (most recent first)
+        years = []
+        for df in [income_df, balance_df, cashflow_df]:
+            if df is not None and not df.empty:
+                years = sorted([str(c.year) for c in df.columns], reverse=True)
+                break
+
+        # --- Ratios ---
+        def pct(v):
+            f = _safe_float(v)
+            return round(f * 100, 2) if f is not None else None
+
+        ratios = {
+            "Valuation": {
+                "Market Cap": _safe_float(info.get("marketCap")),
+                "Enterprise Value": _safe_float(info.get("enterpriseValue")),
+                "P/E (TTM)": _safe_float(info.get("trailingPE")),
+                "Forward P/E": _safe_float(info.get("forwardPE")),
+                "PEG Ratio": _safe_float(info.get("pegRatio")),
+                "EV/EBITDA": _safe_float(info.get("enterpriseToEbitda")),
+                "EV/Revenue": _safe_float(info.get("enterpriseToRevenue")),
+                "P/B": _safe_float(info.get("priceToBook")),
+                "P/S (TTM)": _safe_float(info.get("priceToSalesTrailing12Months")),
+            },
+            "Profitability": {
+                "Gross Margin": pct(info.get("grossMargins")),
+                "EBITDA Margin": pct(info.get("ebitdaMargins")),
+                "Operating Margin": pct(info.get("operatingMargins")),
+                "Net Margin": pct(info.get("profitMargins")),
+                "ROE": pct(info.get("returnOnEquity")),
+                "ROA": pct(info.get("returnOnAssets")),
+            },
+            "Leverage": {
+                "Total Debt/Equity": _safe_float(info.get("debtToEquity")),
+                "Current Ratio": _safe_float(info.get("currentRatio")),
+                "Quick Ratio": _safe_float(info.get("quickRatio")),
+            },
+            "Per Share": {
+                "EPS (TTM)": _safe_float(info.get("trailingEps")),
+                "Forward EPS": _safe_float(info.get("forwardEps")),
+                "Book Value/Share": _safe_float(info.get("bookValue")),
+                "Dividend/Share": _safe_float(info.get("dividendRate")),
+                "Dividend Yield": pct(info.get("dividendYield")),
+                "Payout Ratio": pct(info.get("payoutRatio")),
+            },
+            "Growth (YoY)": {
+                "Revenue Growth": pct(info.get("revenueGrowth")),
+                "Earnings Growth": pct(info.get("earningsGrowth")),
+                "EPS Growth (TTM)": pct(info.get("earningsQuarterlyGrowth")),
+            },
+        }
+
+        return {
+            "company": company,
+            "years": years,
+            "income_statement": income_data,
+            "balance_sheet": balance_data,
+            "cash_flow": cashflow_data,
+            "ratios": ratios,
+        }
+    except Exception as e:
+        logger.error(f"Financials error for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
